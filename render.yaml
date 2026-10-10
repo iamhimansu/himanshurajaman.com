@@ -1,0 +1,71 @@
+# Render Blueprint for himanshurajaman.com — a single free Docker web service.
+#
+# BEST-EFFORT / VERIFY: Render's Blueprint schema evolves. Validate this against
+# the current spec (https://render.com/docs/blueprint-spec) before relying on
+# it; the Render dashboard is always the fallback for anything this gets wrong.
+#
+# Secrets use `sync: false`, so Render PROMPTS for them in the dashboard and the
+# value is NEVER written into this file or the repo. Do not add secret values
+# here. PORT is intentionally omitted: Render injects it and the server binds
+# $PORT on all interfaces (see internal/config + cmd/server).
+services:
+  - type: web
+    name: himanshurajaman-com
+    runtime: docker            # older Blueprint schema used `env: docker` — verify
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /healthz  # liveness only; never calls GitHub
+    # region: singapore        # optional: closest free region to India (default: oregon)
+    envVars:
+      # --- Non-secret configuration (safe to commit) ---
+      - key: CONTENT_SOURCE
+        value: github
+      - key: CONTENT_REF
+        value: main
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: BASE_URL
+        value: https://himanshurajaman.com
+
+      # --- Secrets / environment-specific: set these in the dashboard ---
+      # Content repo (private), "owner/repo", e.g. iamhimansu/content.himanshurajaman.com
+      - key: CONTENT_REPO
+        sync: false
+      # Fine-grained PAT, Contents: Read AND Write, scoped to the content repo only.
+      - key: GITHUB_TOKEN
+        sync: false
+      # Google OAuth client (admin sign-in).
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # The single Google account allowed to administer the site.
+      - key: ADMIN_EMAIL
+        sync: false
+      # Session cookie key, >= 32 bytes (generate: openssl rand -base64 48).
+      - key: SESSION_SECRET
+        sync: false
+      # GitHub push-to-resync webhook secret (same value set on the repo webhook).
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      # Contact form. Option A (recommended on Render free): the Resend HTTP email
+      # API — set RESEND_API_KEY + CONTACT_FROM (a Resend-verified-domain address)
+      # + CONTACT_TO. Option B (SMTP) will NOT deliver on free (Render blocks
+      # outbound SMTP 25/465/587); see the README "Contact form on Render free".
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: CONTACT_TO
+        sync: false
+      - key: CONTACT_FROM
+        sync: false

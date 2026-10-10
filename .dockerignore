@@ -1,0 +1,41 @@
+# Keep the build context small and reproducible. The frontend (web/dist) and
+# the Go binary are built INSIDE the image, so their local artifacts, plus all
+# dev-only and secret files, are excluded here.
+
+# VCS + agent/workflow metadata
+.git
+.gitignore
+.github
+.agents
+
+# Docs and design assets (not needed to build the image)
+docs
+README.md
+
+# Dev content seed — production reads CONTENT_SOURCE=github, not this directory
+sample-content
+
+# Local build outputs (rebuilt in-image)
+bin
+web/dist
+**/node_modules
+
+# Disposable SQLite cache + its WAL/SHM siblings (never baked into an image)
+*.sqlite
+*.sqlite-*
+**/*.sqlite
+**/*.sqlite-*
+
+# Secrets / local env (never bake into an image)
+.env
+.env.local
+.env.example
+.env.local.example
+
+# OS cruft
+.DS_Store
+**/.DS_Store
+
+# Docker files themselves
+Dockerfile
+.dockerignore

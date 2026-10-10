@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "title": "A Draft Note (Should Not Be Public)",
+    "slug": "draft-note",
+    "date": "2024-04-10T08:00:00Z",
+    "summary": "An unpublished draft used to verify that drafts are ingested but excluded from all public queries.",
+    "tags": ["Drafts"],
+    "published": false
+  },
+  "content": {
+    "time": 1712736000000,
+    "blocks": [
+      {
+        "id": "draft-body",
+        "type": "paragraph",
+        "data": {
+          "text": "This post has <b>published: false</b>, so it must be ingested into the cache but never returned by any public endpoint — not in the list, not by slug, not in search, and its tag must not appear in the published tag counts."
+        }
+      },
+      {
+        "id": "draft-unique",
+        "type": "paragraph",
+        "data": {
+          "text": "The unique word quokka appears only here, so searching for it should return nothing from the public search endpoint."
+        }
+      }
+    ],
+    "version": "2.31.7"
+  }
+}

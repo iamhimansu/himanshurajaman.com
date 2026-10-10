@@ -1,0 +1,104 @@
+{
+  "basics": {
+    "name": "Himanshu Raj Aman",
+    "headline": "Backend engineer building reliable systems at national scale.",
+    "label": "Senior Backend Engineer",
+    "email": "iamhimanshu7102@gmail.com",
+    "location": "New Delhi, India",
+    "summary": "Senior Backend Engineer with 4+ years building national-scale academic governance systems in PHP and Yii2, serving 2,000+ institutions and 100,000+ concurrent users. I focus on configurable rule engines, staged processing pipelines, and large-batch performance work — recently cutting a core batch process from 10 hours to under 20 minutes. Open to relocation (Germany / EU).",
+    "links": [
+      { "label": "GitHub", "url": "https://github.com/iamhimansu" },
+      { "label": "LinkedIn", "url": "https://www.linkedin.com/in/himanshurajaman" }
+    ]
+  },
+  "sections": [
+    {
+      "kind": "experience",
+      "title": "Experience",
+      "items": [
+        {
+          "org": "Samarth eGov (Ministry of Education, Govt. of India initiative)",
+          "role": "Senior Backend Engineer",
+          "start": "2025-08",
+          "end": null,
+          "location": "New Delhi, India",
+          "highlights": [
+            "Cut grace-marks batch runtime from 10 hours to under 20 minutes by moving to array-based processing, bulk CASE/WHEN SQL updates, keyset pagination, and MySQL JSON aggregation.",
+            "Rebuilt result processing as a staged pipeline where each stage receives a shared context object and owns one concern — course-count validation, component evaluation, final-result verification, then persistence — with the stages covered by unit tests.",
+            "Modelled component pass/fail across combined filters (aggregate vs component-level, required-to-pass, attendance, disciplinary flags), with a simulation mode for dry-run verification before publishing.",
+            "Designed a configurable, block-based grace-marks rule engine using JSONLogic conditions and DMN-style hit policies, replacing hardcoded per-ordinance logic with composable rules; modelled pipeline limits at 5,000,000-student scale.",
+            "Eliminated recurring lock-wait timeouts by splitting one long transaction into per-batch transactions with exponential-backoff retry and idempotency flags.",
+            "Built Flux, an in-house PHP/SSE library streaming long-running job output to the browser through a detached-worker architecture, bypassing Apache's 60-second request timeout.",
+            "Led a small backend team through an ERP module overhaul, adding multi-tenancy and code-review standards; held 99.9% uptime across seasonal traffic spikes using AWS ELB, MySQL indexing, and Redis."
+          ]
+        },
+        {
+          "org": "Samarth eGov",
+          "role": "Backend Engineer",
+          "start": "2023-10",
+          "end": "2025-08",
+          "location": "New Delhi, India",
+          "highlights": [
+            "Built the UG/PG admissions backend for Delhi University, handling 100,000+ requests during peak submission windows.",
+            "Designed a standardised marks-entry data model adopted by 2,000+ colleges across multiple Indian states.",
+            "Built a priority-based job queue for result processing with per-job status tracking and audit logging; diagnosed priority starvation that left large batches indefinitely deferred.",
+            "Built parallel PDF report generation with chunked pipelines that preserve sort order; fixed mPDF backtrack-limit failures through incremental rendering.",
+            "Exposed UIMS services to AI tooling through MCP servers in PHP, built on a reflection-based method index."
+          ]
+        },
+        {
+          "org": "Samarth eGov",
+          "role": "Junior Backend Engineer",
+          "start": "2022-05",
+          "end": "2023-10",
+          "location": "New Delhi, India",
+          "highlights": [
+            "Integrated the National Academic Depository (NAD) API for secure academic record uploads and built template parsers for document automation.",
+            "Built student feedback systems with automated Excel reporting using PHP Spreadsheet."
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "education",
+      "title": "Education",
+      "items": [
+        {
+          "org": "Indira Gandhi National Open University",
+          "credential": "Master of Computer Applications",
+          "start": "2023",
+          "end": "Present"
+        },
+        {
+          "org": "Indira Gandhi National Open University",
+          "credential": "Bachelor of Computer Applications (70%)",
+          "start": "2019",
+          "end": "2024"
+        }
+      ]
+    },
+    {
+      "kind": "skills",
+      "title": "Stack",
+      "groups": [
+        { "name": "Languages", "items": ["PHP (Expert)", "SQL", "JavaScript", "Node.js", "C++"] },
+        { "name": "Frameworks", "items": ["Yii2", "Laravel", "Express.js", "React.js", "jQuery", "Bootstrap"] },
+        { "name": "Data & infrastructure", "items": ["MySQL", "Redis", "MongoDB", "AWS (EC2, ELB, S3)", "Docker", "Git", "GitLab CI", "GitHub Actions"] },
+        { "name": "Architecture", "items": ["REST APIs", "Rule engines (JSONLogic, DMN)", "Staged pipelines", "Job queues", "Unit testing", "SSE streaming", "SaaS multi-tenancy", "Model Context Protocol (MCP)"] },
+        { "name": "Currently learning", "items": ["Go (concurrency, backend services)"] }
+      ]
+    },
+    {
+      "kind": "projects",
+      "title": "Selected work",
+      "link": { "label": "All repositories", "url": "https://github.com/iamhimansu?tab=repositories" },
+      "items": [
+        { "name": "csvquery", "tag": "Go", "url": "https://github.com/entreya/csvquery", "description": "High-performance CSV engine for billion-row datasets, with MySQL-inspired disk-based indexing and a Yii2-style query builder." },
+        { "name": "flux", "tag": "PHP", "url": "https://github.com/entreya/flux", "description": "PHP streaming library for real-time output over server-sent events." },
+        { "name": "processmanager", "tag": "PHP", "url": "https://github.com/iamhimansu/processmanager", "description": "Multi-processing manager for running and supervising parallel PHP workers." },
+        { "name": "aigo", "tag": "Go", "url": "https://github.com/iamhimansu/aigo", "description": "A small neural network built from scratch in Go." },
+        { "name": "neuralflow", "tag": "JavaScript", "url": "https://github.com/entreya/neuralflow", "description": "Experimental neural-network playground in JavaScript." }
+      ]
+    }
+  ]
+}

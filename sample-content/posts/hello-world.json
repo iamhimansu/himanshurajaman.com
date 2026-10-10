@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "title": "Hello, World — and a Note on Benchmarks",
+    "slug": "hello-world",
+    "date": "2024-03-02T09:00:00Z",
+    "updated": "2024-03-05T12:30:00Z",
+    "summary": "A first published post, with a code block and a quick benchmark note to exercise rendering and search.",
+    "tags": ["Go", "Benchmarks", "Notes"],
+    "published": true,
+    "cover": "images/avatar.png"
+  },
+  "content": {
+    "time": 1709370000000,
+    "blocks": [
+      {
+        "id": "intro",
+        "type": "paragraph",
+        "data": {
+          "text": "This is the first <b>published</b> post. It exists to exercise server-side rendering, syntax highlighting, sanitization, and full-text search."
+        }
+      },
+      {
+        "id": "code-head",
+        "type": "header",
+        "data": { "text": "A code block", "level": 2 }
+      },
+      {
+        "id": "code-lead",
+        "type": "paragraph",
+        "data": {
+          "text": "Here is a tiny Go function that we expect to come back highlighted:"
+        }
+      },
+      {
+        "id": "code-go",
+        "type": "code",
+        "data": {
+          "code": "package main\n\nimport \"fmt\"\n\nfunc main() {\n    // A goroutine benchmark starts here.\n    fmt.Println(\"hello, world\")\n}",
+          "language": "go"
+        }
+      },
+      {
+        "id": "bench-head",
+        "type": "header",
+        "data": { "text": "Why benchmarks matter", "level": 2 }
+      },
+      {
+        "id": "bench-lead",
+        "type": "paragraph",
+        "data": {
+          "text": "When I write about a benchmark, I care about allocations per operation and the tail latency, not just the mean. A quick table:"
+        }
+      },
+      {
+        "id": "bench-table",
+        "type": "table",
+        "data": {
+          "withHeadings": true,
+          "content": [
+            ["Case", "ns/op", "allocs/op"],
+            ["baseline", "120", "2"],
+            ["optimized", "95", "1"]
+          ]
+        }
+      },
+      {
+        "id": "search-note",
+        "type": "paragraph",
+        "data": {
+          "text": "Search should find this post when you query for <code class=\"inline-code\">benchmark</code> or <code class=\"inline-code\">goroutine</code>."
+        }
+      }
+    ],
+    "version": "2.31.7"
+  }
+}

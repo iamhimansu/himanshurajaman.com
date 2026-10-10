@@ -1,0 +1,437 @@
+/* Admin CMS styles. Imported only from AdminApp.tsx, so Vite emits this CSS as
+   part of the admin lazy chunk — the visitor pages never load it. Everything
+   reuses the Part A tokens (--bg/--surface/--text/--muted/--line/--accent,
+   --mono/--sans): light theme, 1px dividers, no cards/shadows/animations. */
+
+/* ---- Top bar + shared headings ----------------------------------------- */
+
+.admin-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.admin-bar h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+.admin-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-subhead {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 24px 0 12px;
+}
+.admin-whoami {
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
+/* ---- Login -------------------------------------------------------------- */
+
+.admin-login {
+  padding-top: 24px;
+}
+.admin-login h2 {
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+}
+
+/* ---- Notices + banners -------------------------------------------------- */
+
+.admin-banner,
+.admin-notice,
+.admin-error {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+.admin-banner {
+  background: #f5f5f4;
+  color: var(--muted);
+}
+.admin-notice {
+  background: #f5f5f4;
+  color: var(--text);
+}
+.admin-error {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+/* A button that reads like an inline link (retry / reload). */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ---- Status badges (post list) ----------------------------------------- */
+
+.badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.badge-published {
+  background: var(--text);
+  color: #fff;
+  border-color: var(--text);
+}
+.badge-draft {
+  background: var(--surface);
+}
+.admin-row-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ---- Forms -------------------------------------------------------------- */
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+}
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.admin-field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.admin-field input[type='text'],
+.admin-field input[type='email'],
+.admin-field textarea,
+.admin-json {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+.admin-field textarea {
+  resize: vertical;
+}
+.admin-field input:disabled,
+.admin-field textarea:disabled,
+.admin-json:disabled {
+  background: #f5f5f4;
+  color: var(--muted);
+}
+.admin-field-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.admin-field-inline > span {
+  font-weight: 400;
+  color: var(--text);
+}
+.admin-hint {
+  font-size: 14px;
+  margin: 8px 0 0;
+}
+
+/* Tag chips */
+.admin-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: #f5f5f4;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.admin-chip button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+}
+.admin-chip-input {
+  flex: 1;
+  min-width: 120px;
+  font: inherit;
+  font-size: 14px;
+  border: 0;
+  outline: none;
+  background: transparent;
+}
+
+.admin-project-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.admin-project-row:last-child {
+  border-bottom: 0;
+}
+
+/* ---- Resume JSON editor ------------------------------------------------- */
+
+.admin-json {
+  font-family: var(--mono);
+  font-size: 13px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* ---- Editor.js body ----------------------------------------------------- */
+
+.admin-pane-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.admin-editor-body {
+  margin-top: 24px;
+}
+.admin-editor-host {
+  position: relative;
+  min-height: 300px;
+}
+.admin-editor-loading {
+  padding: 16px 0;
+}
+
+/* The editor sits in a bordered surface so it reads as one field, matching the
+   metadata inputs above. All Editor.js chrome is restyled with the site tokens:
+   light theme, 1px dividers, 8px radii, no shadows/animations. */
+.admin-editorjs {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px 12px;
+}
+.admin-editorjs .codex-editor {
+  /* Editor.js theming variables (newer cores read these). */
+  --color-line-gray: var(--line);
+  --color-background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+/* Use the full field width (default Editor.js centers a narrow 650px column). */
+.admin-editorjs .ce-block__content,
+.admin-editorjs .ce-toolbar__content {
+  max-width: none;
+  margin: 0;
+}
+.admin-editorjs .codex-editor__redactor {
+  padding-bottom: 120px;
+}
+.admin-editorjs .ce-block {
+  padding: 1px 0;
+}
+.admin-editorjs .ce-paragraph,
+.admin-editorjs .ce-header {
+  line-height: 1.6;
+}
+.admin-editorjs .ce-header {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* + and settings buttons (left gutter). */
+.admin-editorjs .ce-toolbar__plus,
+.admin-editorjs .ce-toolbar__settings-btn {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: none;
+}
+.admin-editorjs .ce-toolbar__plus:hover,
+.admin-editorjs .ce-toolbar__settings-btn:hover {
+  background: #f5f5f4;
+  border-color: #a8a29e;
+}
+
+/* Popover (add-block menu + block settings) and inline toolbar: no shadow, flat
+   1px border, token colors. */
+.admin-editorjs .ce-popover,
+.admin-editorjs .ce-popover__container,
+.admin-editorjs .ce-inline-toolbar,
+.admin-editorjs .ce-conversion-toolbar {
+  --color-border-icon: var(--line);
+  --color-background-icon-active: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+  color: var(--text);
+}
+.admin-editorjs .ce-popover-item__icon,
+.admin-editorjs .ce-popover-item--focused .ce-popover-item__icon {
+  background: #f5f5f4;
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+.admin-editorjs .ce-popover-item:hover,
+.admin-editorjs .ce-popover-item--focused {
+  background: #f5f5f4 !important;
+}
+.admin-editorjs .ce-popover__search,
+.admin-editorjs .cdx-search-field {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.admin-editorjs .ce-inline-tool,
+.admin-editorjs .ce-conversion-tool {
+  color: var(--text);
+}
+.admin-editorjs .ce-inline-tool:hover,
+.admin-editorjs .ce-conversion-tool:hover {
+  background: #f5f5f4;
+}
+.admin-editorjs .ce-inline-tool--active {
+  color: var(--accent);
+}
+
+/* Tool inputs (quote/image captions) + table tool. */
+.admin-editorjs .cdx-input,
+.admin-editorjs .cdx-quote__text,
+.admin-editorjs .cdx-quote__caption {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: none;
+}
+.admin-editorjs .tc-table,
+.admin-editorjs .tc-wrap {
+  --color-border: var(--line);
+  border-color: var(--line);
+}
+.admin-editorjs .cdx-button {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+.admin-editorjs .cdx-button:hover {
+  border-color: #a8a29e;
+}
+
+/* Keyboard focus is always visible (site convention). */
+.admin-editorjs *:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Code block tool (dedicated) --------------------------------------- */
+
+.cdx-code {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 4px 0;
+  background: var(--surface);
+}
+.cdx-code__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: #f5f5f4;
+}
+.cdx-code__label {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.cdx-code__lang {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.cdx-code__input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  outline: none;
+  resize: vertical;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+  tab-size: 2;
+}
+.cdx-code__preview {
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px dashed var(--line);
+  background: #f5f5f4;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.cdx-code__preview code {
+  font-family: inherit;
+  background: none;
+  padding: 0;
+}

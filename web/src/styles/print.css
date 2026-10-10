@@ -1,0 +1,79 @@
+/* Print styles: make the browser's Print produce a clean resume (and readable
+   posts). Hide chrome, force black-on-white, expand link URLs, set margins.
+   Only active for print, so the screen view is unaffected. */
+
+@media print {
+  @page {
+    margin: 18mm 16mm;
+  }
+
+  :root {
+    --accent: #000000;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  /* Hide everything that isn't the document itself. */
+  header.top,
+  footer,
+  .skip-link,
+  .no-print,
+  .resume-toolbar {
+    display: none !important;
+  }
+
+  main {
+    max-width: none;
+    width: auto;
+    padding: 0;
+    margin: 0;
+    min-height: 0;
+  }
+
+  a {
+    color: #000000 !important;
+    text-decoration: none;
+  }
+
+  /* Expand link targets so printed pages keep the URLs. Skip mailto and
+     in-page anchors to avoid noise. */
+  .resume a[href^='http']::after,
+  .post-content a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    color: #000000;
+    word-break: break-all;
+  }
+
+  /* Keep entries and headings from splitting awkwardly across pages. */
+  h1,
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+  .resume-entry,
+  .post-card {
+    page-break-inside: avoid;
+  }
+
+  .resume section {
+    border-top: 1px solid #000000;
+  }
+
+  /* Readable code and tables in print. */
+  .post-content pre.chroma {
+    border: 1px solid #000000 !important;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .post-content th,
+  .post-content td {
+    border: 1px solid #000000 !important;
+  }
+}

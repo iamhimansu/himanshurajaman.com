@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Himanshu R. A. · Backend Engineer</title>
+<meta name="description" content="Senior backend engineer working with PHP, Yii2 and Go. Based in Delhi.">
+<style>
+  :root{
+    --bg:#fafaf9; --surface:#fff; --text:#1c1917; --muted:#6b6560;
+    --line:#e7e5e4; --accent:#1d4ed8;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:720px;margin:0 auto;padding:0 24px}
+  header.top{display:flex;justify-content:space-between;align-items:center;padding:28px 0}
+  header.top .brand{font-weight:600;text-decoration:none}
+  nav a{margin-left:20px;color:var(--muted);text-decoration:none;font-size:14px}
+  nav a:hover{color:var(--text)}
+  .hero{padding:56px 0 40px}
+  .hero h1{font-size:40px;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em}
+  .hero .role{color:var(--muted);font-size:18px;margin:0 0 24px}
+  .hero p{max-width:60ch;margin:0 0 28px}
+  .links{display:flex;flex-wrap:wrap;gap:10px}
+  .btn{display:inline-block;padding:9px 16px;border:1px solid var(--line);border-radius:8px;background:var(--surface);text-decoration:none;font-size:14px}
+  .btn:hover{border-color:#a8a29e}
+  .btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
+  section{padding:40px 0;border-top:1px solid var(--line)}
+  h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 24px}
+  .project{display:block;text-decoration:none;padding:18px 0;border-bottom:1px solid var(--line)}
+  .project:last-child{border-bottom:0}
+  .project .row{display:flex;justify-content:space-between;gap:16px;align-items:baseline}
+  .project h3{margin:0;font-size:17px;font-weight:600}
+  .project:hover h3{color:var(--accent)}
+  .project p{margin:6px 0 0;color:var(--muted);font-size:15px}
+  .tag{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+  .stack{display:grid;grid-template-columns:140px 1fr;gap:10px 16px;font-size:15px}
+  .stack dt{color:var(--muted)}
+  .stack dd{margin:0}
+  .more{margin-top:20px;font-size:14px}
+  .more a{color:var(--accent)}
+  footer{padding:40px 0 64px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
+  @media(max-width:520px){
+    .hero h1{font-size:32px}
+    .stack{grid-template-columns:1fr}
+    .stack dt{margin-top:8px}
+    nav a{margin-left:14px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <a class="brand" href="#">Himanshu R. A.</a>
+    <nav>
+      <a href="#work">Work</a>
+      <a href="#stack">Stack</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <h1>Backend engineer building reliable systems at scale.</h1>
+      <p class="role">PHP · Yii2 · Go &nbsp;—&nbsp; Delhi, India</p>
+      <p>
+        I work on data-heavy backend systems: query performance, API integration,
+        background processing and real-time output. Lately I've been building small
+        open-source tools in Go and PHP around indexing, streaming and process control.
+      </p>
+      <div class="links">
+        <a class="btn primary" href="https://raw.githubusercontent.com/iamhimansu/iamhimansu/main/himanshu_resume_main.pdf">Resume</a>
+        <a class="btn" href="https://github.com/iamhimansu">GitHub</a>
+        <a class="btn" href="https://www.linkedin.com/in/himanshurajaman">LinkedIn</a>
+      </div>
+    </div>
+
+    <section id="work">
+      <h2>Selected work</h2>
+
+      <a class="project" href="https://github.com/entreya/csvquery">
+        <div class="row"><h3>csvquery</h3><span class="tag">Go</span></div>
+        <p>High-performance CSV engine for billion-row datasets, with MySQL-inspired disk-based indexing and a Yii2-style query builder.</p>
+      </a>
+
+      <a class="project" href="https://github.com/entreya/flux">
+        <div class="row"><h3>flux</h3><span class="tag">PHP</span></div>
+        <p>PHP streaming library for real-time output over server-sent events.</p>
+      </a>
+
+      <a class="project" href="https://github.com/iamhimansu/processmanager">
+        <div class="row"><h3>processmanager</h3><span class="tag">PHP</span></div>
+        <p>Multi-processing manager for running and supervising parallel PHP workers.</p>
+      </a>
+
+      <a class="project" href="https://github.com/iamhimansu/aigo">
+        <div class="row"><h3>aigo</h3><span class="tag">Go</span></div>
+        <p>A small neural network built from scratch in Go.</p>
+      </a>
+
+      <a class="project" href="https://github.com/entreya/neuralflow">
+        <div class="row"><h3>neuralflow</h3><span class="tag">JavaScript</span></div>
+        <p>Add a one-line description here.</p>
+      </a>
+
+      <p class="more"><a href="https://github.com/iamhimansu?tab=repositories">All 31 repositories →</a></p>
+    </section>
+
+    <section id="stack">
+      <h2>Stack</h2>
+      <dl class="stack">
+        <dt>Languages</dt><dd>PHP, Go, JavaScript, SQL</dd>
+        <dt>Frameworks</dt><dd>Yii2, Node.js, Express, React</dd>
+        <dt>Data</dt><dd>MySQL, SQLite, MongoDB</dd>
+        <dt>Focus</dt><dd>Query optimization, API integration, background jobs, streaming</dd>
+      </dl>
+    </section>
+
+    <section id="contact">
+      <h2>Contact</h2>
+      <p>Open to conversations about backend roles and interesting engineering problems.</p>
+      <p><a href="https://www.linkedin.com/in/himanshurajaman">LinkedIn</a> · <a href="https://github.com/iamhimansu">GitHub</a></p>
+    </section>
+  </main>
+
+  <footer>© <span id="y"></span> Himanshu R. A.</footer>
+</div>
+<script>document.getElementById('y').textContent=new Date().getFullYear()</script>
+</body>
+</html>

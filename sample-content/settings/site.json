@@ -1,0 +1,18 @@
+{
+  "title": "Himanshu Raj Aman",
+  "description": "Senior backend engineer working in PHP, Yii2, MySQL and AWS. Notes on bugs, research, and benchmarks.",
+  "author": "Himanshu Raj Aman",
+  "baseUrl": "https://himanshurajaman.com",
+  "accent": "#1d4ed8",
+  "nav": [
+    { "label": "Home", "path": "/" },
+    { "label": "Resume", "path": "/resume" },
+    { "label": "Blog", "path": "/blog" }
+  ],
+  "social": [
+    { "label": "GitHub", "url": "https://github.com/iamhimansu" },
+    { "label": "LinkedIn", "url": "https://www.linkedin.com/in/himanshurajaman" }
+  ],
+  "defaultOgImage": "images/avatar.png",
+  "postsPerPage": 10
+}

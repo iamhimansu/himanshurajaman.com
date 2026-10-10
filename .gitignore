@@ -1,0 +1,24 @@
+# Disposable SQLite cache (never committed) and its WAL/SHM siblings.
+*.sqlite
+*.sqlite-*
+
+# Local env files (secrets). .env.local powers `make admin`.
+.env
+.env.local
+
+# Node / frontend.
+node_modules/
+
+# macOS Finder metadata.
+.DS_Store
+
+# Vite build output. It is a build artifact embedded by go:embed at build time
+# (the frontend build runs before `go build` — see the Makefile/README), so it
+# is not tracked. A fresh checkout must run `make build` before `go build`.
+/web/dist/
+
+# Agent workflow artifacts (plans, reviews, verification notes, screenshots).
+.agents/
+
+# Built server binary (make server).
+bin/

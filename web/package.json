@@ -1,0 +1,36 @@
+{
+  "name": "himanshurajaman-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.node.json && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@editorjs/delimiter": "1.4.2",
+    "@editorjs/editorjs": "2.31.7",
+    "@editorjs/header": "2.8.9",
+    "@editorjs/image": "2.10.3",
+    "@editorjs/inline-code": "1.5.2",
+    "@editorjs/list": "2.0.9",
+    "@editorjs/marker": "1.4.0",
+    "@editorjs/quote": "2.7.6",
+    "@editorjs/table": "2.4.6",
+    "@tanstack/react-query": "5.62.7",
+    "highlight.js": "11.12.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.6"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.9",
+    "@types/react": "18.3.14",
+    "@types/react-dom": "18.3.3",
+    "@vitejs/plugin-react": "4.3.4",
+    "typescript": "5.6.3",
+    "vite": "5.4.21"
+  }
+}
