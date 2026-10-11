@@ -1,0 +1,19 @@
+name: keep-alive
+# Keeps the Render free web service awake (it spins down after ~15 min idle).
+# GitHub's scheduler is best-effort and often delayed/skipped under load, so
+# each run also self-pings in a short loop to cover gaps between runs.
+# Lives in the public code repo, so Actions minutes are free.
+on:
+  schedule:
+    - cron: '3,13,23,33,43,53 * * * *'   # ~every 10 min, offset off the hour
+  workflow_dispatch:                      # allows manual runs from the Actions tab
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /healthz
+        run: |
+          for i in 1 2 3; do
+            echo "ping $i -> $(curl -sS -m 60 -o /dev/null -w '%{http_code}' https://himanshurajaman.com/healthz || echo failed)"
+            [ "$i" -lt 3 ] && sleep 240
+          done
