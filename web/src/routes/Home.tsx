@@ -1,25 +1,29 @@
-// Home: Hero / Selected work / Stack / Contact, composed from resume.json +
-// settings (no new content type). Reproduces docs/design/prototype/index.html.
-// All new resume fields are optional; sections whose source is absent are
-// omitted entirely.
+// Home: Hero / Stack / Latest posts, composed from resume.json + settings +
+// recent posts (no new content type). Selected-work moved to /works and the
+// contact section moved to /contact. New resume fields are optional; sections
+// whose source is absent are omitted entirely.
 
 import { Fragment, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-import { useResume, useSettings } from '../lib/queries'
+import { useRecentPosts, useResume, useSettings } from '../lib/queries'
 import type {
   GenericSection,
-  ProjectItem,
   ResumeBasics,
   SkillGroup,
   SocialLink,
 } from '../lib/types'
 import { PendingState } from '../components/QueryStates'
-import ContactForm from '../components/ContactForm'
+import { PostListSkeleton } from '../components/Skeletons'
+import PostCard from '../components/PostCard'
+
+// Single source of truth for how many posts the home page previews.
+const HOME_LATEST_POSTS = 5
 
 export default function Home() {
   const settings = useSettings()
   const resume = useResume()
+  const recent = useRecentPosts(HOME_LATEST_POSTS)
 
   useEffect(() => {
     document.title = settings.data?.title ?? 'Himanshu Raj Aman'
@@ -33,9 +37,6 @@ export default function Home() {
 
   const sections = resume.data?.sections ?? []
   const basics = (sections.find((s) => s.kind === 'basics')?.data ?? {}) as ResumeBasics
-  const projects = sections.find((s) => s.kind === 'projects')?.data as
-    | GenericSection
-    | undefined
   const skills = sections.find((s) => s.kind === 'skills')?.data as
     | GenericSection
     | undefined
@@ -55,35 +56,30 @@ export default function Home() {
   const social: SocialLink[] =
     settings.data?.social?.length ? settings.data.social : basics.links ?? []
 
-  const projectItems = (projects?.items ?? []) as ProjectItem[]
-  const projectsLink = projects?.link
   const skillGroups = (skills?.groups ?? []) as SkillGroup[]
 
-  const contactLine = settings.data?.description ?? ''
-  const contactLinks = social
-  const ownerEmail = basics.email
-  // Server-authoritative: show the form when contact is configured, else a
-  // mailto fallback. Defaults to false so the form stays hidden until the
-  // settings query resolves (and whenever SMTP is unset on the server).
-  const contactEnabled = settings.data?.contactEnabled ?? false
-  const showContact =
-    contactEnabled || Boolean(contactLine) || contactLinks.length > 0 || Boolean(ownerEmail)
+  const posts = recent.data?.items ?? []
 
   return (
-    <div className="home">
-      <div className="hero">
-        <h1>{headline}</h1>
-        {showRole && <p className="role">{role}</p>}
-        {intro && <p>{intro}</p>}
-        <div className="links">
-          <Link to="/resume" className="btn primary">
+    <div className="mx-auto max-w-page">
+      <section className="pt-14 pb-10">
+        <h1 className="text-5xl font-bold leading-[1.1] tracking-tight">
+          {headline}
+        </h1>
+        {showRole && <p className="mt-3 text-lg text-muted">{role}</p>}
+        {intro && <p className="mt-6 max-w-[60ch]">{intro}</p>}
+        <div className="mt-7 flex flex-wrap gap-2.5">
+          <Link
+            to="/resume"
+            className="border border-text bg-text px-4 py-2 text-sm text-white"
+          >
             Resume
           </Link>
           {social.map((s) => (
             <a
               key={s.url}
               href={s.url}
-              className="btn"
+              className="border border-line bg-surface px-4 py-2 text-sm text-text hover:border-line-strong"
               rel="me noopener noreferrer"
               target="_blank"
             >
@@ -91,88 +87,59 @@ export default function Home() {
             </a>
           ))}
         </div>
-      </div>
-
-      {projects && projectItems.length > 0 && (
-        <section id="work" aria-labelledby="work-heading">
-          <h2 id="work-heading">Selected work</h2>
-          {projectItems.map((item, i) =>
-            item.url ? (
-              <a
-                key={`${item.name ?? ''}-${i}`}
-                className="project"
-                href={item.url}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <div className="row">
-                  <h3>{item.name}</h3>
-                  {item.tag && <span className="tag">{item.tag}</span>}
-                </div>
-                {item.description && <p>{item.description}</p>}
-              </a>
-            ) : (
-              <div className="project" key={`${item.name ?? ''}-${i}`}>
-                <div className="row">
-                  <h3>{item.name}</h3>
-                  {item.tag && <span className="tag">{item.tag}</span>}
-                </div>
-                {item.description && <p>{item.description}</p>}
-              </div>
-            ),
-          )}
-          {projectsLink && (
-            <p className="more">
-              <a href={projectsLink.url} rel="noopener noreferrer" target="_blank">
-                {projectsLink.label} →
-              </a>
-            </p>
-          )}
-        </section>
-      )}
+      </section>
 
       {skills && skillGroups.length > 0 && (
-        <section id="stack" aria-labelledby="stack-heading">
-          <h2 id="stack-heading">Stack</h2>
-          <dl className="stack">
+        <section
+          className="border-t border-line py-10"
+          aria-labelledby="stack-heading"
+        >
+          <h2
+            id="stack-heading"
+            className="mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted"
+          >
+            Stack
+          </h2>
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-[15px] sm:grid-cols-[140px_1fr]">
             {skillGroups.map((group, i) => (
               <Fragment key={`${group.name ?? ''}-${i}`}>
-                <dt>{group.name}</dt>
-                <dd>{(group.items ?? []).join(', ')}</dd>
+                <dt className="text-muted">{group.name}</dt>
+                <dd className="m-0">{(group.items ?? []).join(', ')}</dd>
               </Fragment>
             ))}
           </dl>
         </section>
       )}
 
-      {showContact && (
-        <section id="contact" aria-labelledby="contact-heading">
-          <h2 id="contact-heading">Contact</h2>
-          {contactLine && <p>{contactLine}</p>}
-          {contactLinks.length > 0 && (
-            <p>
-              {contactLinks.map((s, i) => (
-                <span key={s.url}>
-                  {i > 0 && <span aria-hidden="true"> · </span>}
-                  <a href={s.url} rel="me noopener noreferrer" target="_blank">
-                    {s.label}
-                  </a>
-                </span>
-              ))}
-            </p>
-          )}
-          {contactEnabled ? (
-            <ContactForm />
-          ) : (
-            ownerEmail && (
-              <p className="contact-fallback">
-                Prefer email? Reach me at{' '}
-                <a href={`mailto:${ownerEmail}`}>{ownerEmail}</a>.
-              </p>
-            )
-          )}
-        </section>
-      )}
+      <section
+        className="border-t border-line py-10"
+        aria-labelledby="latest-heading"
+      >
+        <div className="mb-6 flex items-baseline justify-between gap-4">
+          <h2
+            id="latest-heading"
+            className="text-[13px] font-semibold uppercase tracking-[0.08em] text-muted"
+          >
+            Latest posts
+          </h2>
+          <Link to="/blog" className="text-sm text-accent hover:underline">
+            View all →
+          </Link>
+        </div>
+        {recent.isPending ? (
+          <PostListSkeleton count={HOME_LATEST_POSTS} />
+        ) : recent.isError ? (
+          <p className="text-muted">Couldn’t load posts right now.</p>
+        ) : posts.length === 0 ? (
+          <p className="text-muted">No posts yet.</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {posts.map((post) => (
+              <PostCard key={post.slug} post={post} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

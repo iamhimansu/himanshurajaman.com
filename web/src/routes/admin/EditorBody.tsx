@@ -85,13 +85,16 @@ const EditorBody = forwardRef<EditorBodyHandle, EditorBodyProps>(function Editor
   }, [])
 
   return (
-    <div className="admin-editor-host">
+    <div className="relative min-h-[300px]">
+      {/* `admin-editorjs` is the hook the admin.css chrome overrides target —
+          keep it on the editor host. */}
       <div ref={hostRef} className="admin-editorjs" />
-      {!loaded && !failed && (
-        <p className="muted admin-editor-loading">Loading editor…</p>
-      )}
+      {!loaded && !failed && <p className="py-4 text-muted">Loading editor…</p>}
       {failed && (
-        <p className="admin-error" role="alert">
+        <p
+          className="border border-[#fca5a5] bg-[#fef2f2] px-3.5 py-2.5 text-sm text-[#991b1b]"
+          role="alert"
+        >
           The editor failed to load. Reload the page to try again.
         </p>
       )}

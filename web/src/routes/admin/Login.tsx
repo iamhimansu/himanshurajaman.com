@@ -7,6 +7,7 @@ import { useEffect } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 
 import { useAdminAuth } from './AdminApp'
+import { btnPrimary, errorBox } from './ui'
 
 export default function Login() {
   const { me, disabled } = useAdminAuth()
@@ -30,20 +31,22 @@ export default function Login() {
   }
 
   return (
-    <section className="admin-login">
-      <h2>Admin</h2>
+    <section>
+      <h2 className="mb-3 text-2xl font-semibold tracking-tight">Admin</h2>
       {disabled ? (
-        <p className="muted">Admin is not configured on this server.</p>
+        <p className="text-muted">Admin is not configured on this server.</p>
       ) : (
         <>
           {errorMessage && (
-            <p className="admin-error" role="alert">
+            <p className={`mb-4 ${errorBox}`} role="alert">
               {errorMessage}
             </p>
           )}
-          <p className="muted">Sign in with the authorized Google account to manage content.</p>
-          <p>
-            <a className="btn primary" href="/auth/login">
+          <p className="text-muted">
+            Sign in with the authorized Google account to manage content.
+          </p>
+          <p className="mt-4">
+            <a className={btnPrimary} href="/auth/login">
               Sign in with Google
             </a>
           </p>

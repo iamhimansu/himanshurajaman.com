@@ -2,7 +2,8 @@
 // server's position order. Known kinds (basics, experience, education, skills,
 // projects) get tailored layouts; unknown kinds render generically so new
 // section types never break the page. styles/print.css makes browser Print
-// produce a clean, link-expanded document.
+// produce a clean, link-expanded document — the `.resume` and `.no-print`
+// class hooks below are what print.css targets.
 
 import { Fragment, useEffect } from 'react'
 
@@ -16,7 +17,16 @@ import type {
   ResumeSection,
   SkillGroup,
 } from '../lib/types'
-import { ErrorState, PendingState } from '../components/QueryStates'
+import { ErrorState, Warming } from '../components/QueryStates'
+import { WarmingError } from '../lib/api'
+import { ResumeSkeleton } from '../components/Skeletons'
+
+const SECTION_TITLE =
+  'mb-6 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted'
+const ENTRY = 'border-b border-line py-[18px] last:border-b-0'
+const ENTRY_HEAD = 'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5'
+const ENTRY_TITLE = 'm-0 text-[17px] font-semibold'
+const DATES = 'whitespace-nowrap text-[15px] text-muted'
 
 export default function Resume() {
   const query = useResume()
@@ -28,16 +38,21 @@ export default function Resume() {
   }, [settings.data?.author, settings.data?.title])
 
   if (query.isPending) {
-    return <PendingState failureReason={query.failureReason} />
+    if (query.failureReason instanceof WarmingError) return <Warming />
+    return <ResumeSkeleton />
   }
   if (query.isError) {
     return <ErrorState message={query.error.message} />
   }
 
   return (
-    <div className="resume">
-      <div className="resume-toolbar no-print">
-        <button type="button" className="btn" onClick={() => window.print()}>
+    <div className="resume mx-auto max-w-page [&_section]:border-t [&_section]:border-line [&_section]:py-10">
+      <div className="no-print mb-2 flex justify-end print:hidden">
+        <button
+          type="button"
+          className="border border-line bg-surface px-4 py-2 text-sm text-text hover:border-line-strong"
+          onClick={() => window.print()}
+        >
           Print
         </button>
       </div>
@@ -67,20 +82,33 @@ function Section({ section }: { section: ResumeSection }) {
 
 function Basics({ data }: { data: ResumeBasics }) {
   return (
-    <header className="resume-basics">
-      {data.name && <h1>{data.name}</h1>}
-      {data.label && <p className="resume-label">{data.label}</p>}
-      <p className="muted resume-contact">
+    <header className="pt-2">
+      {data.name && (
+        <h1 className="text-3xl font-bold leading-tight tracking-tight">
+          {data.name}
+        </h1>
+      )}
+      {data.label && <p className="mt-1 text-lg text-muted">{data.label}</p>}
+      <p className="mb-2.5 mt-1 text-[15px] text-muted">
         {data.location && <span>{data.location}</span>}
         {data.location && data.email && <span aria-hidden="true"> · </span>}
-        {data.email && <a href={`mailto:${data.email}`}>{data.email}</a>}
+        {data.email && (
+          <a href={`mailto:${data.email}`} className="text-accent hover:underline">
+            {data.email}
+          </a>
+        )}
       </p>
-      {data.summary && <p className="resume-summary">{data.summary}</p>}
+      {data.summary && <p className="mt-0">{data.summary}</p>}
       {data.links && data.links.length > 0 && (
-        <ul className="inline-links" aria-label="Links">
+        <ul className="mb-4 mt-2 flex flex-wrap gap-4" aria-label="Links">
           {data.links.map((link) => (
             <li key={link.url}>
-              <a href={link.url} rel="noopener noreferrer" target="_blank">
+              <a
+                href={link.url}
+                className="text-accent hover:underline"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
                 {link.label}
               </a>
             </li>
@@ -92,7 +120,7 @@ function Basics({ data }: { data: ResumeBasics }) {
 }
 
 function SectionTitle({ title, fallback }: { title?: string; fallback: string }) {
-  return <h2>{title ?? fallback}</h2>
+  return <h2 className={SECTION_TITLE}>{title ?? fallback}</h2>
 }
 
 function Experience({ data }: { data: GenericSection }) {
@@ -101,20 +129,24 @@ function Experience({ data }: { data: GenericSection }) {
     <section>
       <SectionTitle title={data.title} fallback="Experience" />
       {items.map((item, i) => (
-        <div className="resume-entry" key={`${item.org ?? ''}-${i}`}>
-          <div className="resume-entry-head">
-            <h3 className="resume-entry-title">
+        <div className={ENTRY} key={`${item.org ?? ''}-${i}`}>
+          <div className={ENTRY_HEAD}>
+            <h3 className={ENTRY_TITLE}>
               {item.role}
-              {item.role && item.org && <span className="muted"> · {item.org}</span>}
+              {item.role && item.org && <span className="text-muted"> · {item.org}</span>}
               {!item.role && item.org}
             </h3>
-            <span className="muted resume-dates">{dateRange(item.start, item.end)}</span>
+            <span className={DATES}>{dateRange(item.start, item.end)}</span>
           </div>
-          {item.location && <p className="muted resume-entry-sub">{item.location}</p>}
+          {item.location && (
+            <p className="mt-1.5 text-[15px] text-muted">{item.location}</p>
+          )}
           {item.highlights && item.highlights.length > 0 && (
-            <ul className="resume-highlights">
+            <ul className="mt-1.5 list-disc pl-5">
               {item.highlights.map((h, j) => (
-                <li key={j}>{h}</li>
+                <li key={j} className="mb-1">
+                  {h}
+                </li>
               ))}
             </ul>
           )}
@@ -130,14 +162,16 @@ function Education({ data }: { data: GenericSection }) {
     <section>
       <SectionTitle title={data.title} fallback="Education" />
       {items.map((item, i) => (
-        <div className="resume-entry" key={`${item.org ?? ''}-${i}`}>
-          <div className="resume-entry-head">
-            <h3 className="resume-entry-title">
+        <div className={ENTRY} key={`${item.org ?? ''}-${i}`}>
+          <div className={ENTRY_HEAD}>
+            <h3 className={ENTRY_TITLE}>
               {item.credential}
-              {item.credential && item.org && <span className="muted"> · {item.org}</span>}
+              {item.credential && item.org && (
+                <span className="text-muted"> · {item.org}</span>
+              )}
               {!item.credential && item.org}
             </h3>
-            <span className="muted resume-dates">{dateRange(item.start, item.end)}</span>
+            <span className={DATES}>{dateRange(item.start, item.end)}</span>
           </div>
         </div>
       ))}
@@ -150,11 +184,11 @@ function Skills({ data }: { data: GenericSection }) {
   return (
     <section>
       <SectionTitle title={data.title} fallback="Skills" />
-      <dl className="stack">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-[15px] sm:grid-cols-[140px_1fr]">
         {groups.map((group, i) => (
           <Fragment key={`${group.name ?? ''}-${i}`}>
-            <dt>{group.name}</dt>
-            <dd>{(group.items ?? []).join(', ')}</dd>
+            <dt className="text-muted">{group.name}</dt>
+            <dd className="m-0">{(group.items ?? []).join(', ')}</dd>
           </Fragment>
         ))}
       </dl>
@@ -170,23 +204,23 @@ function Projects({ data }: { data: GenericSection }) {
       {items.map((item, i) =>
         item.url ? (
           <a
-            className="project"
+            className={`block ${ENTRY} [&:hover_h3]:text-accent`}
             key={`${item.name ?? ''}-${i}`}
             href={item.url}
             rel="noopener noreferrer"
             target="_blank"
           >
-            <div className="row">
-              <h3>{item.name}</h3>
-            </div>
-            {item.description && <p>{item.description}</p>}
+            <h3 className={ENTRY_TITLE}>{item.name}</h3>
+            {item.description && (
+              <p className="mt-1.5 text-[15px] text-muted">{item.description}</p>
+            )}
           </a>
         ) : (
-          <div className="project" key={`${item.name ?? ''}-${i}`}>
-            <div className="row">
-              <h3>{item.name}</h3>
-            </div>
-            {item.description && <p>{item.description}</p>}
+          <div className={ENTRY} key={`${item.name ?? ''}-${i}`}>
+            <h3 className={ENTRY_TITLE}>{item.name}</h3>
+            {item.description && (
+              <p className="mt-1.5 text-[15px] text-muted">{item.description}</p>
+            )}
           </div>
         ),
       )}
@@ -201,9 +235,11 @@ function Generic({ data }: { data: GenericSection }) {
     <section>
       <SectionTitle title={data.title} fallback="Section" />
       {items.length > 0 && (
-        <ul className="resume-highlights">
+        <ul className="mt-1.5 list-disc pl-5">
           {items.map((item, i) => (
-            <li key={i}>{typeof item === 'string' ? item : JSON.stringify(item)}</li>
+            <li key={i} className="mb-1">
+              {typeof item === 'string' ? item : JSON.stringify(item)}
+            </li>
           ))}
         </ul>
       )}

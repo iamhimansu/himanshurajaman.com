@@ -1,32 +1,34 @@
-// App shell: one centered .wrap holding the skip link, header/nav, main, and
-// footer (matches docs/design/prototype/index.html). Nav and footer come from
-// /api/settings when available, with a static fallback so the chrome renders
-// even while the API is warming. The accent color is applied to :root as a CSS
-// custom property so plain CSS can reference it everywhere.
+// App shell: a centered wide frame (max-w-wide, 64rem) holding the skip link, the
+// fixed top nav, main, and footer. The nav is a hardcoded five-item set
+// (independent of settings.nav); settings still supplies the brand title,
+// author, social links and the runtime accent. The accent is applied to :root
+// as a CSS custom property so tokens resolve to it everywhere.
 
 import { useEffect } from 'react'
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
 
 import { useSettings } from '../lib/queries'
-import type { NavLink as NavLinkT, SocialLink } from '../lib/types'
+import type { SocialLink } from '../lib/types'
 
-const FALLBACK_NAV: NavLinkT[] = [
+// Fixed primary navigation. Not derived from settings.nav by design.
+const NAV = [
   { label: 'Home', path: '/' },
-  { label: 'Resume', path: '/resume' },
+  { label: 'Works', path: '/works' },
   { label: 'Blog', path: '/blog' },
-]
+  { label: 'Resume', path: '/resume' },
+  { label: 'Contact', path: '/contact' },
+] as const
 
 export default function Layout() {
   const { data: settings } = useSettings()
   const { pathname } = useLocation()
   const isHome = pathname === '/'
 
-  const nav = settings?.nav?.length ? settings.nav : FALLBACK_NAV
   const social: SocialLink[] = settings?.social ?? []
   const siteTitle = settings?.title ?? 'Himanshu Raj Aman'
   const author = settings?.author ?? siteTitle
 
-  // Apply the runtime accent (sensible default lives in global.css).
+  // Apply the runtime accent (sensible default lives in index.css).
   useEffect(() => {
     if (settings?.accent) {
       document.documentElement.style.setProperty('--accent', settings.accent)
@@ -34,46 +36,58 @@ export default function Layout() {
   }, [settings?.accent])
 
   return (
-    <div className="wrap">
+    <div className="mx-auto flex min-h-screen w-full max-w-wide flex-col px-6">
       <a className="skip-link" href="#main">
         Skip to content
       </a>
 
-      <header className="top">
-        <Link to="/" className="brand">
+      <header className="site-header flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-line py-5">
+        <Link to="/" className="text-base font-bold tracking-tight text-text">
           {siteTitle}
         </Link>
-        <nav aria-label="Primary">
-          {nav.map((item) => (
+        <nav
+          aria-label="Primary"
+          className="flex flex-wrap items-center divide-x divide-line text-sm"
+        >
+          {NAV.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               end={item.path === '/'}
-              className={({ isActive }) => (isActive ? 'active' : undefined)}
+              className={({ isActive }) =>
+                `px-3 first:pl-0 ${
+                  isActive
+                    ? 'font-semibold text-accent'
+                    : 'text-muted hover:text-text'
+                }`
+              }
             >
               {item.label}
             </NavLink>
           ))}
-          <NavLink
-            to="/search"
-            className={({ isActive }) => (isActive ? 'active' : undefined)}
-          >
-            Search
-          </NavLink>
         </nav>
       </header>
 
-      <main id="main" className={isHome ? undefined : 'page'} tabIndex={-1}>
+      <main
+        id="main"
+        className={`flex-1 ${isHome ? '' : 'pt-10'}`}
+        tabIndex={-1}
+      >
         <Outlet />
       </main>
 
-      <footer>
+      <footer className="mt-10 border-t border-line pt-10 pb-16 text-sm text-muted">
         © {new Date().getFullYear()} {author}
         {social.length > 0 && (
-          <ul className="social-list">
+          <ul className="mt-2 flex flex-wrap gap-4">
             {social.map((s) => (
               <li key={s.url}>
-                <a href={s.url} rel="me noopener noreferrer" target="_blank">
+                <a
+                  href={s.url}
+                  className="hover:text-text"
+                  rel="me noopener noreferrer"
+                  target="_blank"
+                >
                   {s.label}
                 </a>
               </li>

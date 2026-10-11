@@ -7,7 +7,8 @@ disposable read cache rebuilt from the content repo on boot.
 - **Backend:** Go, chi, modernc.org/sqlite (pure Go); posts are Editor.js JSON
   documents rendered to sanitized HTML server-side (chroma highlighting,
   bluemonday).
-- **Frontend:** React + Vite + TypeScript, React Router, TanStack Query, plain CSS.
+- **Frontend:** React + Vite + TypeScript, React Router, TanStack Query, Tailwind
+  CSS v4 (via `@tailwindcss/vite`, with `@tailwindcss/typography` for post bodies).
 - **Serving:** the built frontend (`web/dist`) is embedded with `go:embed`, so
   there is one deployable unit.
 
@@ -63,9 +64,15 @@ Configuration is environment-only; see `.env.example`.
 
 ## Routes
 
-Public SPA routes: `/` (home), `/resume`, `/blog`, `/blog/:slug`, `/search`.
-`/admin/*` is the lazy-loaded CMS (Google sign-in + Editor.js post/resume
-editing), code-split into its own chunk so visitors never download it.
+Public SPA routes: `/` (home — hero + latest posts), `/works` (selected work),
+`/contact` (contact form), `/resume`, `/blog`, `/blog/:slug`, `/search`. A blog
+post includes a reader with a heading table of contents (scroll-spy highlight +
+a reading-progress bar). `/admin/*` is the lazy-loaded CMS (Google sign-in +
+Editor.js post/resume editing) — a full-width dashboard with a left sidebar
+(Posts/Resume nav, New post, View site, Logout) and a wide main panel holding a
+posts table/gridview (Title/Status/Date/Tags with Edit, inline-confirm Delete
+and New post) plus the structured resume editor — code-split into its own chunk
+so visitors never download it.
 
 The server serves hashed build assets from `/assets/*` with a long immutable
 cache; every other non-API path falls back to the embedded `index.html` so

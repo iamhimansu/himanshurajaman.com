@@ -38,13 +38,13 @@ export default function Search() {
   const hasQuery = urlQuery.trim().length > 0
 
   return (
-    <div className="search">
-      <header className="page-header">
-        <h1>Search</h1>
+    <div>
+      <header className="mb-2 pt-2">
+        <h1 className="text-3xl font-bold tracking-tight">Search</h1>
       </header>
 
       <form
-        className="search-form"
+        className="mb-6"
         role="search"
         onSubmit={(e) => {
           e.preventDefault()
@@ -57,7 +57,7 @@ export default function Search() {
         <input
           id="search-input"
           type="search"
-          className="search-input"
+          className="w-full border border-line bg-surface px-3.5 py-2.5 text-base text-text"
           placeholder="Search posts…"
           value={input}
           autoComplete="off"
@@ -67,7 +67,7 @@ export default function Search() {
       </form>
 
       {!hasQuery ? (
-        <p className="muted">Type a word to search posts by title, body, or tag.</p>
+        <p className="text-muted">Type a word to search posts by title, body, or tag.</p>
       ) : (
         <PostResults query={query} emptyMessage={`No results for “${urlQuery}”.`} />
       )}

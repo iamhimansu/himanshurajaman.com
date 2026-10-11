@@ -1,19 +1,32 @@
 name: keep-alive
 # Keeps the Render free web service awake (it spins down after ~15 min idle).
-# GitHub's scheduler is best-effort and often delayed/skipped under load, so
-# each run also self-pings in a short loop to cover gaps between runs.
-# Lives in the public code repo, so Actions minutes are free.
+# GitHub's scheduler is best-effort and is often delayed or dropped under load,
+# so treat this as a BACKUP only — a dedicated pinger (e.g. UptimeRobot, every
+# 5 min) is the reliable keep-warm. To bridge gaps when the scheduler misfires,
+# each run self-pings every 5 min for ~25 min and the runs deliberately overlap
+# (cron every 10 min). Public repo => Actions minutes are free.
 on:
   schedule:
-    - cron: '3,13,23,33,43,53 * * * *'   # ~every 10 min, offset off the hour
-  workflow_dispatch:                      # allows manual runs from the Actions tab
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # allows manual runs from the Actions tab
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Ping /healthz
+      - name: Self-ping /healthz for ~25 min
+        shell: bash
         run: |
-          for i in 1 2 3; do
-            echo "ping $i -> $(curl -sS -m 60 -o /dev/null -w '%{http_code}' https://himanshurajaman.com/healthz || echo failed)"
-            [ "$i" -lt 3 ] && sleep 240
+          url="https://himanshurajaman.com/healthz"
+          # Loop with an `if` (not a trailing `[ ] && ...`) so a false test is
+          # never the step's exit code: the previous version went red on every
+          # run even though all pings returned 200.
+          end=$(( SECONDS + 25 * 60 ))
+          while :; do
+            code=$(curl -sS -m 60 -o /dev/null -w '%{http_code}' "$url" || echo failed)
+            echo "$(date -u +%H:%M:%SZ) ping -> $code"
+            if [ "$SECONDS" -ge "$end" ]; then
+              break
+            fi
+            sleep 300
           done

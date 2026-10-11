@@ -1,15 +1,15 @@
-// Lightweight, animation-free status components for the three async states.
-// The warming state exists because the API returns 503 {"status":"warming"}
-// until the backend's first content ingest finishes; React Query keeps retrying
-// and we show this instead of an error.
+// Lightweight status components for the three async states. The warming state
+// exists because the API returns 503 {"status":"warming"} until the backend's
+// first content ingest finishes; React Query keeps retrying and we show this
+// instead of an error.
 
 import { WarmingError } from '../lib/api'
 
 export function Warming() {
   return (
-    <div className="state" role="status" aria-live="polite">
-      <p className="state-title">Warming up…</p>
-      <p className="muted">
+    <div className="py-6" role="status" aria-live="polite">
+      <p className="mb-1 font-semibold">Warming up…</p>
+      <p className="text-muted">
         The server is loading content for the first time. This usually takes a
         few seconds.
       </p>
@@ -19,17 +19,17 @@ export function Warming() {
 
 export function Loading({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="state" role="status" aria-live="polite">
-      <p className="muted">{label}</p>
+    <div className="py-6" role="status" aria-live="polite">
+      <p className="text-muted">{label}</p>
     </div>
   )
 }
 
 export function ErrorState({ message }: { message?: string }) {
   return (
-    <div className="state" role="alert">
-      <p className="state-title">Something went wrong</p>
-      <p className="muted">{message ?? 'Please try again in a moment.'}</p>
+    <div className="py-6" role="alert">
+      <p className="mb-1 font-semibold">Something went wrong</p>
+      <p className="text-muted">{message ?? 'Please try again in a moment.'}</p>
     </div>
   )
 }

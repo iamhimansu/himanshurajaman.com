@@ -83,16 +83,23 @@ export default function ContactForm() {
     }
   }
 
+  const fieldClass =
+    'w-full border border-line bg-surface px-3 py-2 text-[15px] text-text disabled:bg-[#f5f5f4] disabled:text-muted disabled:cursor-default'
+  const labelClass = 'text-xs font-semibold text-muted'
+
   return (
-    <div className="contact">
+    <div>
       {status !== 'success' && (
-        <form className="contact-form" onSubmit={onSubmit} noValidate>
-          <div className="contact-field">
-            <label htmlFor={nameId}>Name</label>
+        <form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={nameId} className={labelClass}>
+              Name
+            </label>
             <input
               id={nameId}
               name="name"
               type="text"
+              className={fieldClass}
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={MAX_NAME}
@@ -102,12 +109,15 @@ export default function ContactForm() {
             />
           </div>
 
-          <div className="contact-field">
-            <label htmlFor={emailId}>Email</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={emailId} className={labelClass}>
+              Email
+            </label>
             <input
               id={emailId}
               name="email"
               type="email"
+              className={fieldClass}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               maxLength={MAX_EMAIL}
@@ -117,11 +127,14 @@ export default function ContactForm() {
             />
           </div>
 
-          <div className="contact-field">
-            <label htmlFor={bodyId}>Message</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={bodyId} className={labelClass}>
+              Message
+            </label>
             <textarea
               id={bodyId}
               name="message"
+              className={`${fieldClass} min-h-[120px] resize-y`}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               maxLength={MAX_MESSAGE}
@@ -134,7 +147,10 @@ export default function ContactForm() {
           {/* Honeypot: hidden off-screen (not display:none, which some bots skip)
               and removed from the accessibility tree. Humans never see or focus
               it; a filled value marks the submission as spam server-side. */}
-          <div className="contact-hp" aria-hidden="true">
+          <div
+            className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden"
+            aria-hidden="true"
+          >
             <label htmlFor={hpId}>Website</label>
             <input
               id={hpId}
@@ -146,8 +162,12 @@ export default function ContactForm() {
             />
           </div>
 
-          <div className="contact-actions">
-            <button type="submit" className="btn primary" disabled={sending}>
+          <div className="flex">
+            <button
+              type="submit"
+              className="border border-text bg-text px-4 py-2 text-sm text-white disabled:opacity-60"
+              disabled={sending}
+            >
               {sending ? 'Sending…' : 'Send message'}
             </button>
           </div>
@@ -155,7 +175,9 @@ export default function ContactForm() {
       )}
 
       <p
-        className={status === 'error' ? 'contact-status contact-status-error' : 'contact-status'}
+        className={`mt-3 min-h-[1.2em] text-sm ${
+          status === 'error' ? 'text-[#991b1b]' : ''
+        }`}
         role="status"
         aria-live="polite"
       >

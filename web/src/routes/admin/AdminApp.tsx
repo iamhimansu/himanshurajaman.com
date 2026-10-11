@@ -19,7 +19,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import {
   AdminAuthUnavailableError,
@@ -34,6 +34,16 @@ import Login from './Login'
 import PostList from './PostList'
 import PostEditor from './PostEditor'
 import ResumeEditor from './ResumeEditor'
+import {
+  btn,
+  btnPrimary,
+  sidebar,
+  sidebarLink,
+  sidebarLinkActive,
+  sidebarLinkIdle,
+  subhead,
+  mainWrap,
+} from './ui'
 
 import '../../styles/admin.css'
 
@@ -137,35 +147,35 @@ export default function AdminApp() {
 
   if (state === 'loading') {
     return (
-      <div className="state" role="status" aria-live="polite">
-        <p className="muted">Loading admin…</p>
-      </div>
+      <AdminScreen role="status">
+        <p className="text-muted">Loading admin…</p>
+      </AdminScreen>
     )
   }
 
   if (state === 'auth-unavailable') {
     return (
-      <div className="state" role="alert">
-        <p className="state-title">Sign-in is temporarily unavailable</p>
-        <p className="muted">
+      <AdminScreen role="alert">
+        <p className="mb-1 font-semibold">Sign-in is temporarily unavailable</p>
+        <p className="text-muted">
           The sign-in service can’t be reached right now. Please try again in a
           moment.
         </p>
-        <p>
-          <button type="button" className="btn" onClick={() => window.location.reload()}>
+        <p className="mt-4">
+          <button type="button" className={btn} onClick={() => window.location.reload()}>
             Retry
           </button>
         </p>
-      </div>
+      </AdminScreen>
     )
   }
 
   if (state === 'error') {
     return (
-      <div className="state" role="alert">
-        <p className="state-title">Something went wrong</p>
-        <p className="muted">{errorMessage || 'Please try again in a moment.'}</p>
-      </div>
+      <AdminScreen role="alert">
+        <p className="mb-1 font-semibold">Something went wrong</p>
+        <p className="text-muted">{errorMessage || 'Please try again in a moment.'}</p>
+      </AdminScreen>
     )
   }
 
@@ -182,12 +192,21 @@ export default function AdminApp() {
     <AdminAuthContext.Provider value={value}>
       <Routes>
         <Route index element={<IndexRedirect authed={state === 'authed'} />} />
-        <Route path="login" element={<Login />} />
+        <Route
+          path="login"
+          element={
+            <AdminScreen>
+              <Login />
+            </AdminScreen>
+          }
+        />
         <Route
           path="posts"
           element={
             <Protected authed={state === 'authed'}>
-              <PostList />
+              <AdminShell>
+                <PostList />
+              </AdminShell>
             </Protected>
           }
         />
@@ -195,7 +214,9 @@ export default function AdminApp() {
           path="posts/new"
           element={
             <Protected authed={state === 'authed'}>
-              <PostEditor mode="create" />
+              <AdminShell>
+                <PostEditor mode="create" />
+              </AdminShell>
             </Protected>
           }
         />
@@ -203,7 +224,9 @@ export default function AdminApp() {
           path="posts/:slug/edit"
           element={
             <Protected authed={state === 'authed'}>
-              <PostEditor mode="edit" />
+              <AdminShell>
+                <PostEditor mode="edit" />
+              </AdminShell>
             </Protected>
           }
         />
@@ -211,7 +234,9 @@ export default function AdminApp() {
           path="resume"
           element={
             <Protected authed={state === 'authed'}>
-              <ResumeEditor />
+              <AdminShell>
+                <ResumeEditor />
+              </AdminShell>
             </Protected>
           }
         />
@@ -228,4 +253,101 @@ function IndexRedirect({ authed }: { authed: boolean }) {
 function Protected({ authed, children }: { authed: boolean; children: ReactNode }) {
   if (!authed) return <Navigate to="/admin/login" replace />
   return <>{children}</>
+}
+
+// A single centered bordered panel for the guard/login screens (not two-column
+// — there is no authed session to navigate yet).
+function AdminScreen({
+  children,
+  role,
+}: {
+  children: ReactNode
+  role?: 'status' | 'alert'
+}) {
+  return (
+    <div className="py-8">
+      <div
+        className="mx-auto max-w-md border border-line bg-surface p-6"
+        role={role}
+        aria-live={role === 'status' ? 'polite' : undefined}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// Full-viewport admin shell: a persistent LEFT sidebar (site label, signed-in
+// email, View site, Logout, Posts/Resume nav, New post) and a WIDE main panel
+// holding the routed view. On lg it is a two-column grid with a sticky
+// full-height sidebar; below lg the sidebar stacks ABOVE the content so 360px
+// stays usable. Breaks out of the narrow public column (App.tsx routes it as a
+// sibling of the public Layout group).
+function AdminShell({ children }: { children: ReactNode }) {
+  const { writesEnabled, me, signOut } = useAdminAuth()
+  const navigate = useNavigate()
+
+  return (
+    <div className="min-h-screen w-full bg-bg text-text">
+      <div className="mx-auto max-w-[110rem] lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <aside className={sidebar} aria-label="Admin">
+          <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+            <div>
+              <p className={subhead}>Admin</p>
+              <Link
+                to="/"
+                className="mt-1 inline-block text-sm text-muted hover:text-text"
+              >
+                View site ↗
+              </Link>
+            </div>
+
+            <nav className="mt-5 flex flex-col gap-1" aria-label="Admin sections">
+              <AdminNavLink to="/admin/posts">Posts</AdminNavLink>
+              <AdminNavLink to="/admin/resume">Resume</AdminNavLink>
+            </nav>
+
+            <button
+              type="button"
+              className={`${btnPrimary} mt-5 w-full`}
+              disabled={!writesEnabled}
+              onClick={() => navigate('/admin/posts/new')}
+            >
+              New post
+            </button>
+
+            <div className="mt-5 border-t border-line pt-4 lg:mt-auto">
+              {me && (
+                <p className="break-words text-xs text-muted" title={me.email}>
+                  {me.email}
+                </p>
+              )}
+              <button
+                type="button"
+                className={`${btn} mt-2 w-full`}
+                onClick={() => void signOut()}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </aside>
+        <main className={mainWrap}>{children}</main>
+      </div>
+    </div>
+  )
+}
+
+function AdminNavLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <NavLink
+      to={to}
+      end
+      className={({ isActive }) =>
+        `${sidebarLink} ${isActive ? sidebarLinkActive : sidebarLinkIdle}`
+      }
+    >
+      {children}
+    </NavLink>
+  )
 }

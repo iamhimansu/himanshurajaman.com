@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import { ApiError, WarmingError } from './lib/api'
 
-import './styles/global.css'
+import './index.css'
 import './styles/code.css'
 import './styles/print.css'
 

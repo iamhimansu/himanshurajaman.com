@@ -1,6 +1,8 @@
 /* Print styles: make the browser's Print produce a clean resume (and readable
    posts). Hide chrome, force black-on-white, expand link URLs, set margins.
-   Only active for print, so the screen view is unaffected. */
+   Only active for print, so the screen view is unaffected. The `.no-print`,
+   `.resume` and `.post-content` class hooks are kept on their elements for
+   exactly this purpose. */
 
 @media print {
   @page {
@@ -19,12 +21,12 @@
     line-height: 1.4;
   }
 
-  /* Hide everything that isn't the document itself. */
-  header.top,
+  /* Hide site chrome. `.site-header` is the top nav specifically, so the
+     resume's own <header> (name/contact) still prints. */
+  .site-header,
   footer,
   .skip-link,
-  .no-print,
-  .resume-toolbar {
+  .no-print {
     display: none !important;
   }
 
@@ -51,18 +53,14 @@
     word-break: break-all;
   }
 
-  /* Keep entries and headings from splitting awkwardly across pages. */
+  /* Keep headings and resume sections from splitting awkwardly across pages. */
   h1,
   h2,
   h3 {
     page-break-after: avoid;
   }
-  .resume-entry,
-  .post-card {
-    page-break-inside: avoid;
-  }
-
   .resume section {
+    page-break-inside: avoid;
     border-top: 1px solid #000000;
   }
 

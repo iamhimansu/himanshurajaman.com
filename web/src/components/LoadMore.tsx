@@ -11,10 +11,10 @@ export default function LoadMore({
 }) {
   if (!hasNextPage) return null
   return (
-    <div className="load-more">
+    <div className="mt-6 text-center">
       <button
         type="button"
-        className="btn"
+        className="border border-line bg-surface px-4 py-2 text-sm text-text hover:border-[#a8a29e] disabled:cursor-default disabled:opacity-60"
         onClick={onClick}
         disabled={isFetchingNextPage}
       >

@@ -9,6 +9,8 @@ import { Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { Loading } from './components/QueryStates'
 import Home from './routes/Home'
+import Works from './routes/Works'
+import Contact from './routes/Contact'
 import Resume from './routes/Resume'
 import Blog from './routes/Blog'
 import Post from './routes/Post'
@@ -24,20 +26,25 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/works" element={<Works />} />
+        <Route path="/contact" element={<Contact />} />
         <Route path="/resume" element={<Resume />} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/:slug" element={<Post />} />
         <Route path="/search" element={<Search />} />
-        <Route
-          path="/admin/*"
-          element={
-            <Suspense fallback={<Loading label="Loading admin…" />}>
-              <AdminApp />
-            </Suspense>
-          }
-        />
         <Route path="*" element={<NotFound />} />
       </Route>
+      {/* Admin is a sibling of the public Layout group so it renders in its own
+          full-viewport sidebar+main shell, not the narrow public column. The
+          lazy import keeps it a separate chunk the visitor entry never loads. */}
+      <Route
+        path="/admin/*"
+        element={
+          <Suspense fallback={<Loading label="Loading admin…" />}>
+            <AdminApp />
+          </Suspense>
+        }
+      />
     </Routes>
   )
 }

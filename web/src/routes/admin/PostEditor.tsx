@@ -25,6 +25,18 @@ import type { AdminPost, AdminPostMeta } from '../../lib/types'
 import { useAdminAuth } from './AdminApp'
 import EditorBody, { type EditorBodyHandle } from './EditorBody'
 import type { OutputData } from './editor'
+import {
+  banner,
+  btn,
+  btnPrimary,
+  errorBox,
+  field,
+  fieldLabel,
+  input,
+  linkButton,
+  notice,
+  subhead,
+} from './ui'
 
 interface PostEditorProps {
   mode: 'create' | 'edit'
@@ -190,18 +202,18 @@ export default function PostEditor({ mode }: PostEditorProps) {
 
   if (loadState === 'loading') {
     return (
-      <div className="state" role="status" aria-live="polite">
-        <p className="muted">Loading post…</p>
+      <div role="status" aria-live="polite">
+        <p className="text-muted">Loading post…</p>
       </div>
     )
   }
   if (loadState === 'error') {
     return (
-      <div className="state" role="alert">
-        <p className="state-title">Couldn’t load this post</p>
-        <p className="muted">{loadError}</p>
-        <p>
-          <button type="button" className="btn" onClick={() => navigate('/admin/posts')}>
+      <div role="alert">
+        <p className="mb-1 font-semibold">Couldn’t load this post</p>
+        <p className="text-muted">{loadError}</p>
+        <p className="mt-4">
+          <button type="button" className={btn} onClick={() => navigate('/admin/posts')}>
             Back to posts
           </button>
         </p>
@@ -210,16 +222,18 @@ export default function PostEditor({ mode }: PostEditorProps) {
   }
 
   return (
-    <section className="admin-editor">
-      <div className="admin-bar">
-        <h2>{mode === 'create' ? 'New post' : 'Edit post'}</h2>
-        <div className="admin-bar-actions">
-          <button type="button" className="btn" onClick={() => navigate('/admin/posts')}>
+    <section className="max-w-3xl">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+        <h2 className="text-xl font-semibold">
+          {mode === 'create' ? 'New post' : 'Edit post'}
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={btn} onClick={() => navigate('/admin/posts')}>
             Back
           </button>
           <button
             type="button"
-            className="btn primary"
+            className={btnPrimary}
             disabled={readOnly || saving}
             onClick={() => void onSave()}
           >
@@ -229,22 +243,22 @@ export default function PostEditor({ mode }: PostEditorProps) {
       </div>
 
       {readOnly && (
-        <p className="admin-banner" role="status">
+        <p className={`mb-4 ${banner}`} role="status">
           This server is read-only (local content source).
         </p>
       )}
       {saveNotice && (
-        <p className="admin-notice" role="status">
+        <p className={`mb-4 ${notice}`} role="status">
           {saveNotice}
         </p>
       )}
       {saveError && (
-        <p className="admin-error" role="alert">
+        <p className={`mb-4 ${errorBox}`} role="alert">
           {saveError}
           {conflict && (
             <>
               {' '}
-              <button type="button" className="link-button" onClick={() => loadPost()}>
+              <button type="button" className={linkButton} onClick={() => loadPost()}>
                 Reload
               </button>
             </>
@@ -252,11 +266,12 @@ export default function PostEditor({ mode }: PostEditorProps) {
         </p>
       )}
 
-      <div className="admin-form">
-        <label className="admin-field">
-          <span>Title</span>
+      <div className="flex flex-col gap-4">
+        <label className={field}>
+          <span className={fieldLabel}>Title</span>
           <input
             type="text"
+            className={input}
             value={form.title}
             maxLength={200}
             disabled={readOnly}
@@ -264,10 +279,11 @@ export default function PostEditor({ mode }: PostEditorProps) {
           />
         </label>
 
-        <label className="admin-field">
-          <span>Slug</span>
+        <label className={field}>
+          <span className={fieldLabel}>Slug</span>
           <input
             type="text"
+            className={input}
             value={form.slug}
             maxLength={100}
             disabled={readOnly || mode === 'edit'}
@@ -275,14 +291,15 @@ export default function PostEditor({ mode }: PostEditorProps) {
             onChange={(e) => update('slug', e.target.value)}
           />
           {mode === 'edit' && (
-            <small className="muted">Slug can’t change after creation.</small>
+            <small className="text-muted">Slug can’t change after creation.</small>
           )}
         </label>
 
-        <label className="admin-field">
-          <span>Date</span>
+        <label className={field}>
+          <span className={fieldLabel}>Date</span>
           <input
             type="text"
+            className={input}
             value={form.date}
             disabled={readOnly}
             placeholder="2024-03-02T09:00:00Z"
@@ -290,9 +307,10 @@ export default function PostEditor({ mode }: PostEditorProps) {
           />
         </label>
 
-        <label className="admin-field">
-          <span>Summary</span>
+        <label className={field}>
+          <span className={fieldLabel}>Summary</span>
           <textarea
+            className={input}
             value={form.summary}
             maxLength={500}
             rows={2}
@@ -301,15 +319,19 @@ export default function PostEditor({ mode }: PostEditorProps) {
           />
         </label>
 
-        <div className="admin-field">
-          <span>Tags</span>
-          <div className="admin-chips">
+        <div className={field}>
+          <span className={fieldLabel}>Tags</span>
+          <div className="flex flex-wrap items-center gap-2 border border-line p-2">
             {form.tags.map((tag) => (
-              <span className="admin-chip" key={tag}>
+              <span
+                className="inline-flex items-center gap-1.5 bg-[#f5f5f4] px-2 py-0.5 font-mono text-xs"
+                key={tag}
+              >
                 {tag}
                 {!readOnly && (
                   <button
                     type="button"
+                    className="leading-none text-muted hover:text-text"
                     aria-label={`Remove ${tag}`}
                     onClick={() => removeTag(tag)}
                   >
@@ -321,7 +343,7 @@ export default function PostEditor({ mode }: PostEditorProps) {
             {!readOnly && (
               <input
                 type="text"
-                className="admin-chip-input"
+                className="min-w-[120px] flex-1 bg-transparent text-sm outline-none"
                 value={tagDraft}
                 placeholder="Add tag"
                 onChange={(e) => setTagDraft(e.target.value)}
@@ -337,10 +359,11 @@ export default function PostEditor({ mode }: PostEditorProps) {
           </div>
         </div>
 
-        <label className="admin-field">
-          <span>Cover</span>
+        <label className={field}>
+          <span className={fieldLabel}>Cover</span>
           <input
             type="text"
+            className={input}
             value={form.cover}
             disabled={readOnly}
             placeholder="images/cover.png"
@@ -348,19 +371,19 @@ export default function PostEditor({ mode }: PostEditorProps) {
           />
         </label>
 
-        <label className="admin-field admin-field-inline">
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={form.published}
             disabled={readOnly}
             onChange={(e) => update('published', e.target.checked)}
           />
-          <span>Published</span>
+          <span className="text-sm text-text">Published</span>
         </label>
       </div>
 
-      <div className="admin-editor-body">
-        <span className="admin-pane-label">Content</span>
+      <div className="mt-6">
+        <span className={`mb-2 block ${subhead}`}>Content</span>
         <EditorBody
           key={editorKey}
           ref={bodyRef}
