@@ -64,8 +64,27 @@ type Config struct {
 	ContactTo    string // recipient; falls back to AdminEmail
 	ContactFrom  string // envelope/From header; falls back to SMTPUsername
 
+	// AI drafting (optional, fail-safe — see AIEnabled). The admin-only
+	// POST /api/admin/assist + GET /api/admin/models endpoints are enabled when
+	// GROQ_API_KEY is set; otherwise they return 503 and the admin UI hides the
+	// AI panel. The key is sensitive and SERVER-SIDE ONLY (never sent to the
+	// browser or logged). GroqModels is the curated allowlist of selectable chat
+	// models (don't offer non-chat models like whisper/tts); GroqMaxModels caps
+	// how many models one /assist request may fan out to (cost/latency);
+	// GroqBaseURL overrides the API base and is used only by tests.
+	GroqAPIKey    string // sensitive: never log this
+	GroqModels    []string
+	GroqMaxModels int
+	GroqBaseURL   string
+
 	adminEnabled bool
 }
+
+// defaultGroqModels is the current chat-model allowlist shipped by default.
+// Groq is OpenAI-compatible; these are the gpt-oss chat models (the old llama-*
+// models were decommissioned). Override with GROQ_MODELS; the operator confirms
+// what is live in their Groq console.
+const defaultGroqModels = "openai/gpt-oss-120b,openai/gpt-oss-20b"
 
 // AdminEnabled reports whether the admin/CMS surface is configured (all of the
 // admin env vars were present and validated at Load). When false the process
@@ -106,6 +125,16 @@ func Load() (*Config, error) {
 		SMTPPassword: os.Getenv("SMTP_PASSWORD"),
 		ContactTo:    os.Getenv("CONTACT_TO"),
 		ContactFrom:  os.Getenv("CONTACT_FROM"),
+
+		GroqAPIKey:  os.Getenv("GROQ_API_KEY"),
+		GroqBaseURL: os.Getenv("GROQ_BASE_URL"),
+	}
+
+	// Curated chat-model allowlist. An empty/whitespace GROQ_MODELS falls back to
+	// the shipped default so the models endpoint always has a usable set.
+	c.GroqModels = splitCSV(getEnv("GROQ_MODELS", defaultGroqModels))
+	if len(c.GroqModels) == 0 {
+		c.GroqModels = splitCSV(defaultGroqModels)
 	}
 
 	switch c.Source {
@@ -144,6 +173,15 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("SMTP_PORT must be numeric, got %q", c.SMTPPort)
 	}
 
+	maxModels, err := strconv.Atoi(getEnv("GROQ_MAX_MODELS", "4"))
+	if err != nil {
+		return nil, fmt.Errorf("GROQ_MAX_MODELS must be numeric, got %q", os.Getenv("GROQ_MAX_MODELS"))
+	}
+	if maxModels < 1 {
+		return nil, fmt.Errorf("GROQ_MAX_MODELS must be >= 1, got %d", maxModels)
+	}
+	c.GroqMaxModels = maxModels
+
 	if err := c.loadAdmin(); err != nil {
 		return nil, err
 	}
@@ -163,6 +201,12 @@ func (c *Config) ContactEnabled() bool {
 // (RESEND_API_KEY set). Preferred over SMTP when both are present because it
 // works on hosts that block outbound SMTP ports (e.g. Render's free tier).
 func (c *Config) ResendEnabled() bool { return c.ResendAPIKey != "" }
+
+// AIEnabled reports whether the admin AI-drafting surface is configured
+// (GROQ_API_KEY set). Fail-safe like ContactEnabled: when false the
+// GET /api/admin/models + POST /api/admin/assist endpoints return 503 and the
+// admin UI hides the AI panel. The key stays server-side only.
+func (c *Config) AIEnabled() bool { return c.GroqAPIKey != "" }
 
 // loadAdmin applies the all-or-nothing admin enablement rule over
 // {GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ADMIN_EMAIL, SESSION_SECRET}:
@@ -243,4 +287,17 @@ func getEnv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// splitCSV splits a comma-separated list, trimming surrounding whitespace from
+// each entry and dropping empty entries. Used for the GROQ_MODELS allowlist.
+func splitCSV(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }

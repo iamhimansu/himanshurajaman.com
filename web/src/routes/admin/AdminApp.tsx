@@ -53,6 +53,7 @@ interface AdminAuthValue {
   me: AdminMe | null
   disabled: boolean
   writesEnabled: boolean
+  aiEnabled: boolean
   refresh: () => Promise<void>
   signOut: () => Promise<void>
 }
@@ -184,6 +185,7 @@ export default function AdminApp() {
     me,
     disabled,
     writesEnabled: me?.writesEnabled ?? false,
+    aiEnabled: me?.aiEnabled ?? false,
     refresh,
     signOut,
   }

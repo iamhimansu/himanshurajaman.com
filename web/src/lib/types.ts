@@ -143,11 +143,13 @@ export interface GenericSection {
  * internal/admin/service.go). They live in the admin lazy chunk via adminApi.ts
  * and routes/admin/**; nothing in the visitor entry imports them at runtime. */
 
-/** GET /api/admin/me — identity + CSRF token + whether GitHub writes work. */
+/** GET /api/admin/me — identity + CSRF token + whether GitHub writes work and
+ *  whether AI drafting is configured (server-side GROQ_API_KEY). */
 export interface AdminMe {
   email: string
   csrfToken: string
   writesEnabled: boolean
+  aiEnabled: boolean
 }
 
 /** One row in GET /api/admin/posts (drafts included). */
@@ -236,4 +238,48 @@ export interface AdminResumeUpdateRequest {
 }
 export interface AdminResumeWriteResponse {
   fileSha: string
+}
+
+/* ---- AI drafting (admin-only, Groq-backed) ------------------------------ */
+
+/** The optional input-language selector for a draft request. */
+export type AiLanguage = 'auto' | 'en' | 'hi'
+
+/** GET /api/admin/models — the selectable chat-model allowlist, the default
+ *  (first entry), and the per-request cap (GROQ_MAX_MODELS). */
+export interface AiModelsResponse {
+  models: string[]
+  default: string
+  max: number
+}
+
+/** POST /api/admin/assist body: a brief, optional language, and 1..max models. */
+export interface AiAssistRequest {
+  input: string
+  language: AiLanguage
+  models: string[]
+}
+
+/** One per-model failure returned alongside any successful candidates. */
+export interface AiModelError {
+  model: string
+  message: string
+}
+
+/** One generated draft, labelled by the model that produced it. `content` is a
+ *  ready-to-load Editor.js document. */
+export interface AiCandidate {
+  model: string
+  title: string
+  summary: string
+  slug: string
+  tags: string[]
+  content: OutputData
+}
+
+/** POST /api/admin/assist response: successful candidates + per-model errors.
+ *  Partial success (some candidates, some errors) is normal. */
+export interface AiAssistResponse {
+  candidates: AiCandidate[]
+  errors: AiModelError[]
 }

@@ -16,6 +16,8 @@ import type { EditorInstance, OutputData } from './editor'
 
 export interface EditorBodyHandle {
   save: () => Promise<OutputData>
+  /** Replace the live editor's content (used to load an AI-generated draft). */
+  setData: (data: OutputData) => Promise<void>
 }
 
 interface EditorBodyProps {
@@ -42,6 +44,14 @@ const EditorBody = forwardRef<EditorBodyHandle, EditorBodyProps>(function Editor
       const ed = editorRef.current
       if (!ed) throw new Error('Editor is not ready yet')
       return ed.save()
+    },
+    async setData(data: OutputData) {
+      const ed = editorRef.current
+      if (!ed) throw new Error('Editor is not ready yet')
+      // Wait for init before rendering so switching candidates always lands on a
+      // ready instance; render() clears and replaces the existing blocks.
+      await ed.isReady
+      await ed.render(data)
     },
   }))
 

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/iamhimansu/himanshurajaman.com/internal/admin"
+	"github.com/iamhimansu/himanshurajaman.com/internal/ai"
 	"github.com/iamhimansu/himanshurajaman.com/internal/auth"
 	"github.com/iamhimansu/himanshurajaman.com/internal/config"
 	"github.com/iamhimansu/himanshurajaman.com/internal/contact"
@@ -125,6 +126,18 @@ func run(log *slog.Logger) error {
 		}
 	}
 
+	// Build the Groq AI-drafting client when configured (GROQ_API_KEY set). The
+	// key is passed only to the client (server-side); GROQ_BASE_URL overrides the
+	// API base for tests/self-hosting.
+	var aiClient *ai.Client
+	if cfg.AIEnabled() {
+		var opts []ai.Option
+		if cfg.GroqBaseURL != "" {
+			opts = append(opts, ai.WithBaseURL(cfg.GroqBaseURL))
+		}
+		aiClient = ai.NewClient(cfg.GroqAPIKey, opts...)
+	}
+
 	srv := server.New(server.Deps{
 		Store:         st,
 		Images:        imgs,
@@ -140,6 +153,10 @@ func run(log *slog.Logger) error {
 		Ingester:      ing,
 		WebhookSecret: cfg.GitHubWebhookSecret,
 		Contact:       contactSvc,
+		AI:            aiClient,
+		AIEnabled:     cfg.AIEnabled(),
+		AIModels:      cfg.GroqModels,
+		AIMaxModels:   cfg.GroqMaxModels,
 	})
 
 	// [DR5] Late-bind the readiness callback into the admin service now that the
@@ -177,6 +194,14 @@ func run(log *slog.Logger) error {
 		log.Info("contact configured",
 			"enabled", false,
 			"hint", "set RESEND_API_KEY (recommended; works on Render free) or SMTP_HOST+SMTP_USERNAME+SMTP_PASSWORD to enable the contact form")
+	}
+
+	// One line reporting whether admin AI drafting is enabled; the Groq API key
+	// is NEVER logged (only the non-secret model allowlist + cap).
+	if cfg.AIEnabled() {
+		log.Info("ai configured", "enabled", true, "models", cfg.GroqModels, "maxPerRequest", cfg.GroqMaxModels)
+	} else {
+		log.Info("ai configured", "enabled", false, "hint", "set GROQ_API_KEY to enable admin AI drafting")
 	}
 
 	httpSrv := &http.Server{

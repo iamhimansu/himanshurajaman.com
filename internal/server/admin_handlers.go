@@ -107,6 +107,18 @@ func (s *Server) requireWrites(next http.Handler) http.Handler {
 	})
 }
 
+// requireAIEnabled short-circuits the AI-drafting endpoints with 503 when
+// GROQ_API_KEY is unset (s.ai is nil). Mirrors requireWrites' fail-safe shape.
+func (s *Server) requireAIEnabled(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.aiEnabled || s.ai == nil {
+			writeError(w, http.StatusServiceUnavailable, "ai unavailable")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // --- request/response shapes ---
 
 type adminPostRequest struct {

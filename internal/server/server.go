@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/iamhimansu/himanshurajaman.com/internal/admin"
+	"github.com/iamhimansu/himanshurajaman.com/internal/ai"
 	"github.com/iamhimansu/himanshurajaman.com/internal/auth"
 	"github.com/iamhimansu/himanshurajaman.com/internal/contact"
 	"github.com/iamhimansu/himanshurajaman.com/internal/ingest"
@@ -53,6 +54,15 @@ type Deps struct {
 	// configured (SMTP env unset). When nil, POST /api/contact returns 503 and
 	// GET /api/settings reports contactEnabled=false.
 	Contact *contact.Service
+
+	// AI drafting (all nil/false/zero when GROQ_API_KEY is unset). AI is the Groq
+	// chat client; AIModels is the curated allowlist offered to the UI; AIMaxModels
+	// caps models per /assist request. When AIEnabled is false the models/assist
+	// endpoints return 503 and GET /api/admin/me reports aiEnabled=false.
+	AI          *ai.Client
+	AIEnabled   bool
+	AIModels    []string
+	AIMaxModels int
 }
 
 // Server holds shared state and the composed HTTP handler.
@@ -88,6 +98,13 @@ type Server struct {
 	// contact is the contact-form email service (nil = contact disabled).
 	contact *contact.Service
 
+	// ai drafting (nil/false/zero when disabled). aiModels is the selectable chat
+	// allowlist; aiMaxModels caps models per /assist request.
+	ai          *ai.Client
+	aiEnabled   bool
+	aiModels    []string
+	aiMaxModels int
+
 	mu     sync.RWMutex
 	ready  bool
 	commit string
@@ -115,6 +132,10 @@ func New(d Deps) *Server {
 		ingester:      d.Ingester,
 		webhookSecret: d.WebhookSecret,
 		contact:       d.Contact,
+		ai:            d.AI,
+		aiEnabled:     d.AIEnabled,
+		aiModels:      d.AIModels,
+		aiMaxModels:   d.AIMaxModels,
 	}
 	// Split the shell once so each document response is shellHead + generated
 	// meta + shellTail. splitShell returns a nil tail when </head> is absent;

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/iamhimansu/himanshurajaman.com/internal/admin"
+	"github.com/iamhimansu/himanshurajaman.com/internal/ai"
 	"github.com/iamhimansu/himanshurajaman.com/internal/auth"
 	"github.com/iamhimansu/himanshurajaman.com/internal/contact"
 	"github.com/iamhimansu/himanshurajaman.com/internal/content"
@@ -40,6 +41,14 @@ type options struct {
 	contact       bool
 	webhookSecret string
 	notReady      bool
+
+	// AI drafting. When aiEnabled, the server gets a Groq client pointed at
+	// aiBaseURL (an httptest mock). aiModels/aiMaxModels default to a 1-model
+	// allowlist and a cap of 4 when left zero.
+	aiEnabled   bool
+	aiModels    []string
+	aiMaxModels int
+	aiBaseURL   string
 }
 
 // fakeMailer records whether/what the contact service tried to send.
@@ -112,6 +121,19 @@ func newServer(t *testing.T, opt options) *harness {
 		contactSvc = contact.NewService(h.mailer, "owner@example.com", "noreply@example.com", log)
 	}
 
+	var aiClient *ai.Client
+	aiModels := opt.aiModels
+	aiMax := opt.aiMaxModels
+	if opt.aiEnabled {
+		if len(aiModels) == 0 {
+			aiModels = []string{"openai/gpt-oss-120b"}
+		}
+		if aiMax == 0 {
+			aiMax = 4
+		}
+		aiClient = ai.NewClient("test-key", ai.WithBaseURL(opt.aiBaseURL))
+	}
+
 	dist := fstest.MapFS{
 		"index.html":    &fstest.MapFile{Data: []byte(indexShell)},
 		"assets/app.js": &fstest.MapFile{Data: []byte("console.log('app')")},
@@ -132,6 +154,10 @@ func newServer(t *testing.T, opt options) *harness {
 		Ingester:      ing,
 		WebhookSecret: opt.webhookSecret,
 		Contact:       contactSvc,
+		AI:            aiClient,
+		AIEnabled:     opt.aiEnabled,
+		AIModels:      aiModels,
+		AIMaxModels:   aiMax,
 	})
 	if adminSvc != nil {
 		adminSvc.SetMarkReady(h.srv.MarkReady)

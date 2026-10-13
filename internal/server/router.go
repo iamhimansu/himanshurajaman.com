@@ -62,6 +62,12 @@ func (s *Server) routes() http.Handler {
 		r.With(s.requireAdminEnabled, s.requireSession, s.requireCSRF, s.requireWrites).Post("/api/admin/images", s.handleAdminUploadImage)
 		r.With(s.requireAdminEnabled, s.requireSession, s.requireCSRF).Post("/api/admin/preview", s.handleAdminPreview)
 		r.With(s.requireAdminEnabled, s.requireSession, s.requireCSRF).Post("/api/admin/resync", s.handleAdminResync)
+
+		// AI drafting (admin-only, gated by requireAIEnabled → 503 when
+		// GROQ_API_KEY is unset). /assist triggers external paid calls, so it is
+		// CSRF-protected like the write routes; /models is a read (no CSRF).
+		r.With(s.requireAdminEnabled, s.requireSession, s.requireAIEnabled).Get("/api/admin/models", s.handleAdminModels)
+		r.With(s.requireAdminEnabled, s.requireSession, s.requireCSRF, s.requireAIEnabled).Post("/api/admin/assist", s.handleAdminAssist)
 	})
 
 	// Public contact form. Deliberately OUTSIDE the readiness-gated /api group

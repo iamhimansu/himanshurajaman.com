@@ -21,8 +21,9 @@ import {
   updatePost,
   uploadImage,
 } from '../../lib/adminApi'
-import type { AdminPost, AdminPostMeta } from '../../lib/types'
+import type { AdminPost, AdminPostMeta, AiCandidate } from '../../lib/types'
 import { useAdminAuth } from './AdminApp'
+import AiDraftPanel from './AiDraftPanel'
 import EditorBody, { type EditorBodyHandle } from './EditorBody'
 import type { OutputData } from './editor'
 import {
@@ -79,7 +80,7 @@ function formFromPost(post: AdminPost): FormState {
 
 export default function PostEditor({ mode }: PostEditorProps) {
   const { slug: routeSlug } = useParams<{ slug: string }>()
-  const { writesEnabled } = useAdminAuth()
+  const { writesEnabled, aiEnabled } = useAdminAuth()
   const navigate = useNavigate()
   const bodyRef = useRef<EditorBodyHandle | null>(null)
 
@@ -149,6 +150,30 @@ export default function PostEditor({ mode }: PostEditorProps) {
 
   const removeTag = useCallback((tag: string) => {
     setForm((prev) => ({ ...prev, tags: prev.tags.filter((t) => t !== tag) }))
+  }, [])
+
+  // Apply an AI candidate: fill the metadata fields and load its blocks into the
+  // editor. This NEVER saves — the author reviews, then Saves as usual. Prefer
+  // the live instance (no flash); if it isn't ready yet, remount EditorBody with
+  // the candidate as initial data via a changing key.
+  const applyCandidate = useCallback((candidate: AiCandidate) => {
+    setForm((prev) => ({
+      ...prev,
+      title: candidate.title,
+      slug: candidate.slug || prev.slug,
+      summary: candidate.summary,
+      tags: candidate.tags,
+    }))
+    const remount = () => {
+      setContent(candidate.content)
+      setEditorKey((k) => k + 1)
+    }
+    const ed = bodyRef.current
+    if (ed) {
+      ed.setData(candidate.content).catch(remount)
+    } else {
+      remount()
+    }
   }, [])
 
   const buildMeta = useCallback(
@@ -264,6 +289,10 @@ export default function PostEditor({ mode }: PostEditorProps) {
             </>
           )}
         </p>
+      )}
+
+      {mode === 'create' && aiEnabled && !readOnly && (
+        <AiDraftPanel onApply={applyCandidate} />
       )}
 
       <div className="flex flex-col gap-4">

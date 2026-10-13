@@ -16,7 +16,7 @@ func clearEnv(t *testing.T) {
 		"PORT", "SQLITE_PATH", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URL",
 		"ADMIN_EMAIL", "SESSION_SECRET", "BASE_URL", "GITHUB_WEBHOOK_SECRET", "RESEND_API_KEY",
 		"SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "CONTACT_TO", "CONTACT_FROM",
-		"COOKIE_SECURE",
+		"COOKIE_SECURE", "GROQ_API_KEY", "GROQ_MODELS", "GROQ_MAX_MODELS", "GROQ_BASE_URL",
 	} {
 		t.Setenv(k, "")
 	}
@@ -255,6 +255,84 @@ func TestWritesEnabled(t *testing.T) {
 		}
 		if cfg.WritesEnabled() {
 			t.Error("expected writes disabled when admin off")
+		}
+	})
+}
+
+func TestLoad_AIEnabledAndModels(t *testing.T) {
+	t.Run("disabled with no key, defaults populated", func(t *testing.T) {
+		clearEnv(t)
+		localSource(t)
+		cfg, err := config.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.AIEnabled() {
+			t.Error("AI should be disabled with no GROQ_API_KEY")
+		}
+		// The allowlist always has a usable default set even when AI is off.
+		want := []string{"openai/gpt-oss-120b", "openai/gpt-oss-20b"}
+		if len(cfg.GroqModels) != len(want) || cfg.GroqModels[0] != want[0] || cfg.GroqModels[1] != want[1] {
+			t.Errorf("GroqModels = %v, want %v", cfg.GroqModels, want)
+		}
+		if cfg.GroqMaxModels != 4 {
+			t.Errorf("GroqMaxModels = %d, want 4", cfg.GroqMaxModels)
+		}
+	})
+
+	t.Run("enabled with key, custom allowlist and cap", func(t *testing.T) {
+		clearEnv(t)
+		localSource(t)
+		t.Setenv("GROQ_API_KEY", "gsk_secret")
+		t.Setenv("GROQ_MODELS", " openai/gpt-oss-120b , custom/model ,")
+		t.Setenv("GROQ_MAX_MODELS", "2")
+		cfg, err := config.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !cfg.AIEnabled() {
+			t.Error("AI should be enabled when GROQ_API_KEY is set")
+		}
+		want := []string{"openai/gpt-oss-120b", "custom/model"}
+		if len(cfg.GroqModels) != len(want) || cfg.GroqModels[0] != want[0] || cfg.GroqModels[1] != want[1] {
+			t.Errorf("GroqModels = %v, want %v (trimmed, empties dropped)", cfg.GroqModels, want)
+		}
+		if cfg.GroqMaxModels != 2 {
+			t.Errorf("GroqMaxModels = %d, want 2", cfg.GroqMaxModels)
+		}
+	})
+
+	t.Run("blank GROQ_MODELS falls back to default", func(t *testing.T) {
+		clearEnv(t)
+		localSource(t)
+		t.Setenv("GROQ_MODELS", "   ,  ,")
+		cfg, err := config.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.GroqModels) == 0 {
+			t.Fatal("expected default models when GROQ_MODELS is blank")
+		}
+		if cfg.GroqModels[0] != "openai/gpt-oss-120b" {
+			t.Errorf("GroqModels[0] = %q, want default", cfg.GroqModels[0])
+		}
+	})
+
+	t.Run("non-numeric GROQ_MAX_MODELS rejected", func(t *testing.T) {
+		clearEnv(t)
+		localSource(t)
+		t.Setenv("GROQ_MAX_MODELS", "lots")
+		if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "GROQ_MAX_MODELS") {
+			t.Fatalf("expected GROQ_MAX_MODELS error, got %v", err)
+		}
+	})
+
+	t.Run("zero GROQ_MAX_MODELS rejected", func(t *testing.T) {
+		clearEnv(t)
+		localSource(t)
+		t.Setenv("GROQ_MAX_MODELS", "0")
+		if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "GROQ_MAX_MODELS") {
+			t.Fatalf("expected GROQ_MAX_MODELS >= 1 error, got %v", err)
 		}
 	})
 }

@@ -115,6 +115,36 @@ on the content repo (read-only was enough for public ingest). Use a fine-grained
 PAT scoped to that single repo. Fine-grained PATs allow a maximum expiry of 366
 days — rotate the token before it expires and update `GITHUB_TOKEN`.
 
+## AI drafting (optional, admin-only)
+
+The New-post editor has an optional **Draft with AI** panel powered by
+[Groq](https://console.groq.com). The author writes a rough brief (English or
+Hindi), optionally picks a language and **one or more** models, and clicks
+Generate; the backend calls Groq once per selected model in parallel and returns
+one candidate draft per model. Candidates render side by side, labelled by model;
+**Use this draft** fills the title/summary/slug/tags and loads the generated
+Editor.js content into the editor. It never auto-saves — you review, then Save or
+Publish as usual.
+
+It is off by default and gated behind the admin surface. Enable it by setting
+`GROQ_API_KEY`; while unset the panel is hidden and `GET /api/admin/models` /
+`POST /api/admin/assist` return `503 {"error":"ai unavailable"}`. The key is
+**server-side only** — it is never sent to the browser or written to logs — and
+every Generate call **costs Groq API usage**. `POST /api/admin/assist` is
+CSRF-protected and capped to `GROQ_MAX_MODELS` models per request to bound cost.
+
+| Variable          | Default                               | Notes                                                             |
+| ----------------- | ------------------------------------- | ----------------------------------------------------------------- |
+| `GROQ_API_KEY`    | _(unset → feature off)_               | Sensitive. From the Groq console; server-side only.               |
+| `GROQ_MODELS`     | `openai/gpt-oss-120b,openai/gpt-oss-20b` | Comma-separated allowlist of selectable **chat** models.          |
+| `GROQ_MAX_MODELS` | `4`                                   | Max models one Generate request may fan out to (cost/latency cap). |
+
+Groq is OpenAI-compatible; the client posts to `/openai/v1/chat/completions` with
+`response_format=json_object`, and every candidate is validated and sanitized
+server-side (slug normalized, unsupported Editor.js blocks dropped) before it
+reaches the browser. Confirm the live model IDs in your Groq console — the gpt-oss
+chat models are the current default (the old `llama-*` models were decommissioned).
+
 ## Deployment (Render)
 
 The app deploys to [Render](https://render.com) as a single **free Docker web
@@ -163,6 +193,9 @@ values are committed. Grouped:
 - **Contact / SMTP:** `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USERNAME`,
   `SMTP_PASSWORD`, `CONTACT_TO`, `CONTACT_FROM` — but see the free-tier SMTP
   caveat in step 8.
+- **AI drafting (optional):** `GROQ_API_KEY` (secret; `sync: false`) enables the
+  admin Draft-with-AI panel; `GROQ_MODELS` / `GROQ_MAX_MODELS` tune the model
+  allowlist and per-request cap. See "AI drafting" above.
 
 ### 4. Google OAuth redirect
 

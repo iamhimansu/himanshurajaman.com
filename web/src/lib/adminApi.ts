@@ -30,6 +30,10 @@ import type {
   AdminResumeResponse,
   AdminResumeUpdateRequest,
   AdminResumeWriteResponse,
+  AiAssistRequest,
+  AiAssistResponse,
+  AiModelError,
+  AiModelsResponse,
 } from './types'
 
 /* ---- Typed errors ------------------------------------------------------- */
@@ -99,6 +103,32 @@ export class AdminDisabledError extends AdminApiError {
   constructor() {
     super(503, 'admin disabled')
     this.name = 'AdminDisabledError'
+  }
+}
+
+/** 503 — AI drafting is not configured on this server (no GROQ_API_KEY). */
+export class AiUnavailableError extends AdminApiError {
+  constructor(message = 'AI drafting is not available on this server') {
+    super(503, message)
+    this.name = 'AiUnavailableError'
+  }
+}
+
+/** 502 — every selected model failed; `errors` carries the per-model reasons. */
+export class AiAllFailedError extends AdminApiError {
+  errors: AiModelError[]
+  constructor(errors: AiModelError[]) {
+    super(502, 'all selected models failed')
+    this.name = 'AiAllFailedError'
+    this.errors = errors
+  }
+}
+
+/** 400 — invalid assist request (empty brief, bad model, over the model cap…). */
+export class AiBadRequestError extends AdminApiError {
+  constructor(message: string) {
+    super(400, message)
+    this.name = 'AiBadRequestError'
   }
 }
 
@@ -185,13 +215,13 @@ async function doFetch(path: string, opts: RequestOptions): Promise<Response> {
 }
 
 /**
- * Perform an admin request and parse JSON. On 403 csrf, refresh the token from
- * /api/admin/me and retry exactly once. Any non-2xx is translated to a typed
- * error (see throwForStatus).
+ * Fetch with the double-submit CSRF retry: on 403 {error:"csrf"} refresh the
+ * token from /api/admin/me and retry exactly once. A 403 for any other reason
+ * throws immediately. The returned Response is otherwise unexamined, so callers
+ * can map remaining status codes to their own typed errors.
  */
-async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+async function fetchWithCsrfRetry(path: string, opts: RequestOptions): Promise<Response> {
   let res = await doFetch(path, opts)
-
   if (res.status === 403) {
     const body = await readError(res)
     if (body.error === 'csrf') {
@@ -201,7 +231,16 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
       throw new AdminApiError(403, body.error || 'forbidden')
     }
   }
+  return res
+}
 
+/**
+ * Perform an admin request and parse JSON. On 403 csrf, refresh the token from
+ * /api/admin/me and retry exactly once. Any non-2xx is translated to a typed
+ * error (see throwForStatus).
+ */
+async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const res = await fetchWithCsrfRetry(path, opts)
   if (!res.ok) {
     await throwForStatus(res)
   }
@@ -300,6 +339,51 @@ export function getResume(signal?: AbortSignal): Promise<AdminResumeResponse> {
 
 export function updateResume(body: AdminResumeUpdateRequest): Promise<AdminResumeWriteResponse> {
   return request<AdminResumeWriteResponse>('/api/admin/resume', { method: 'PUT', json: body })
+}
+
+/* ---- AI drafting -------------------------------------------------------- */
+
+/**
+ * GET /api/admin/models — the selectable model allowlist + default + cap. 503
+ * maps to AiUnavailableError (AI not configured); other non-2xx fall through to
+ * the shared typed errors (401 → login, etc.).
+ */
+export async function listAiModels(signal?: AbortSignal): Promise<AiModelsResponse> {
+  const res = await fetchWithCsrfRetry('/api/admin/models', { signal })
+  if (res.status === 503) {
+    throw new AiUnavailableError((await readError(res)).error || undefined)
+  }
+  if (!res.ok) {
+    await throwForStatus(res)
+  }
+  return (await res.json()) as AiModelsResponse
+}
+
+/**
+ * POST /api/admin/assist — fan a brief out to the selected models and return one
+ * candidate per model that succeeded plus per-model errors. Status mapping:
+ *   503 -> AiUnavailableError, 502 -> AiAllFailedError (carries errors),
+ *   400 -> AiBadRequestError; others fall through to the shared typed errors.
+ */
+export async function assistDraft(
+  body: AiAssistRequest,
+  signal?: AbortSignal,
+): Promise<AiAssistResponse> {
+  const res = await fetchWithCsrfRetry('/api/admin/assist', { method: 'POST', json: body, signal })
+  if (res.status === 503) {
+    throw new AiUnavailableError((await readError(res)).error || undefined)
+  }
+  if (res.status === 502) {
+    const parsed = (await res.json().catch(() => ({}))) as Partial<AiAssistResponse>
+    throw new AiAllFailedError(parsed.errors ?? [])
+  }
+  if (res.status === 400) {
+    throw new AiBadRequestError((await readError(res)).error || 'invalid request')
+  }
+  if (!res.ok) {
+    await throwForStatus(res)
+  }
+  return (await res.json()) as AiAssistResponse
 }
 
 /* ---- Logout ------------------------------------------------------------- */

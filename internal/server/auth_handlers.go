@@ -144,7 +144,8 @@ func (s *Server) handleAuthLogout(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handleAdminMe returns the signed-in identity, the CSRF token (issued+set when
-// absent), and whether GitHub writes are possible. It runs behind
+// absent), whether GitHub writes are possible, and whether AI drafting is
+// configured (so the SPA can conditionally render the AI panel). It runs behind
 // requireAdminEnabled + requireSession.
 func (s *Server) handleAdminMe(w http.ResponseWriter, r *http.Request) {
 	email, _ := r.Context().Value(ctxKeyEmail).(string)
@@ -167,6 +168,7 @@ func (s *Server) handleAdminMe(w http.ResponseWriter, r *http.Request) {
 		"email":         email,
 		"csrfToken":     token,
 		"writesEnabled": s.writesEnabled,
+		"aiEnabled":     s.aiEnabled,
 	})
 }
 

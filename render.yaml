@@ -69,3 +69,12 @@ services:
         sync: false
       - key: CONTACT_FROM
         sync: false
+      # AI drafting (admin-only, Groq). Enabled only when GROQ_API_KEY is set;
+      # the key is server-side only and each call costs Groq API usage. The
+      # model allowlist + per-request cap are non-secret (safe to commit).
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODELS
+        value: openai/gpt-oss-120b,openai/gpt-oss-20b
+      - key: GROQ_MAX_MODELS
+        value: "4"
