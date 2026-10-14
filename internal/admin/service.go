@@ -427,6 +427,7 @@ func (s *Service) cachePost(ctx context.Context, p *content.ParsedPost, path, fi
 		UpdatedAt:      p.Updated,
 		CoverImage:     p.Cover,
 		ReadingMinutes: content.ReadingMinutes(plain),
+		Page:           p.Page,
 		Tags:           p.Tags,
 		FilePath:       path,
 		FileSHA:        fileSHA,

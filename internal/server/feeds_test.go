@@ -42,6 +42,22 @@ func TestSitemap_PublishedOnly_WellFormed(t *testing.T) {
 	}
 }
 
+func TestSitemap_IncludesPublishedPages(t *testing.T) {
+	// AC-31: the sitemap lists published pages (at /:slug) but not draft pages.
+	h := newServer(t, options{})
+	rr := h.serve(httptest.NewRequest(http.MethodGet, "/sitemap.xml", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "<loc>https://example.test/dsa</loc>") {
+		t.Errorf("sitemap missing the published page /dsa:\n%s", body)
+	}
+	if strings.Contains(body, "/scratch") {
+		t.Error("sitemap must exclude the draft page /scratch")
+	}
+}
+
 func TestRSS_PublishedOnly_WellFormed(t *testing.T) {
 	h := newServer(t, options{})
 	rr := h.serve(httptest.NewRequest(http.MethodGet, "/rss.xml", nil))

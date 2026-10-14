@@ -15,6 +15,7 @@ import Resume from './routes/Resume'
 import Blog from './routes/Blog'
 import Post from './routes/Post'
 import Search from './routes/Search'
+import Page from './routes/Page'
 import NotFound from './routes/NotFound'
 
 // Code-split boundary: keep this a dynamic import and do not import AdminApp
@@ -32,6 +33,9 @@ export default function App() {
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/:slug" element={<Post />} />
         <Route path="/search" element={<Search />} />
+        {/* Dynamic page view: registered LAST (before the catch-all) so every
+            concrete route above matches first and is never shadowed. */}
+        <Route path="/:pageSlug" element={<Page />} />
         <Route path="*" element={<NotFound />} />
       </Route>
       {/* Admin is a sibling of the public Layout group so it renders in its own

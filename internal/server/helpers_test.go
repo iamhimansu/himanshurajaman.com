@@ -42,6 +42,10 @@ type options struct {
 	webhookSecret string
 	notReady      bool
 
+	// contentDir overrides the ingested content tree. When nil the default
+	// fixture tree (testutil.WriteContentDir) is used.
+	contentDir *testutil.ContentDir
+
 	// AI drafting. When aiEnabled, the server gets a Groq client pointed at
 	// aiBaseURL (an httptest mock). aiModels/aiMaxModels default to a 1-model
 	// allowlist and a cap of 4 when left zero.
@@ -70,6 +74,7 @@ type harness struct {
 	sealer *auth.Sealer
 	store  *store.Store
 	mailer *fakeMailer
+	gh     *testutil.GitHubMock // non-nil only when writesEnabled
 }
 
 func newServer(t *testing.T, opt options) *harness {
@@ -86,7 +91,12 @@ func newServer(t *testing.T, opt options) *harness {
 	if err != nil {
 		t.Fatalf("image manager: %v", err)
 	}
-	dir := testutil.WriteContentDir(t)
+	var dir string
+	if opt.contentDir != nil {
+		dir = opt.contentDir.Write(t)
+	} else {
+		dir = testutil.WriteContentDir(t)
+	}
 	ing := ingest.New(source.NewLocal(dir), st, content.NewRenderer(), imgs, log)
 	if _, err := ing.Run(context.Background()); err != nil {
 		t.Fatalf("ingest: %v", err)
@@ -111,6 +121,7 @@ func newServer(t *testing.T, opt options) *harness {
 		var ghc *github.Client
 		if opt.writesEnabled {
 			m := testutil.NewGitHubMock(t)
+			h.gh = m
 			ghc = github.NewClient("tok", github.WithAPIBase(m.APIBase()))
 		}
 		adminSvc = admin.New(st, ghc, content.NewRenderer(), ing, imgs,

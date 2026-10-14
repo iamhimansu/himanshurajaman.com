@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/iamhimansu/himanshurajaman.com/internal/content"
 	"github.com/iamhimansu/himanshurajaman.com/internal/store"
 )
 
@@ -174,6 +175,7 @@ func (s *Server) resolveDocMeta(ctx context.Context, r *http.Request) (meta stri
 
 	switch {
 	case path == "/" || path == "/blog" || path == "/resume" || path == "/search" ||
+		path == "/works" || path == "/contact" ||
 		path == "/admin" || strings.HasPrefix(path, "/admin/"):
 		return renderMeta(defaultMeta(path)), http.StatusOK
 
@@ -211,7 +213,34 @@ func (s *Server) resolveDocMeta(ctx context.Context, r *http.Request) (meta stri
 		return renderMeta(m), http.StatusOK
 
 	default:
-		return renderMeta(defaultMeta(path)), http.StatusNotFound
+		// A top-level /:pageSlug may be a published page. A nested path, an
+		// empty slug, or a reserved word can never be a page: default + 404.
+		slug := strings.TrimPrefix(path, "/")
+		if slug == "" || strings.Contains(slug, "/") || content.IsReservedSlug(slug) {
+			return renderMeta(defaultMeta(path)), http.StatusNotFound
+		}
+		page, err := s.store.GetPage(ctx, slug)
+		if err != nil {
+			if !errors.Is(err, store.ErrNotFound) {
+				s.log.Error("resolve doc meta page", "slug", slug, "error", err.Error())
+			}
+			return renderMeta(defaultMeta(path)), http.StatusNotFound
+		}
+
+		description := ss.Description
+		if page.Summary != nil && *page.Summary != "" {
+			description = *page.Summary
+		}
+		m := docMeta{
+			Title:       page.Title + " — " + ss.Title,
+			Description: description,
+			Canonical:   absURL(ss.BaseURL, "/"+slug),
+			OGType:      "website",
+			OGURL:       absURL(ss.BaseURL, "/"+slug),
+			OGImage:     absURL(ss.BaseURL, ss.DefaultOGImage),
+			SiteName:    ss.Title,
+		}
+		return renderMeta(m), http.StatusOK
 	}
 }
 

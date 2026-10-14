@@ -7,7 +7,7 @@
 // error is shown, never faked as success.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import {
   AdminApiError,
@@ -18,10 +18,11 @@ import {
   AdminWritesDisabledError,
   createPost,
   getPost,
+  listPages,
   updatePost,
   uploadImage,
 } from '../../lib/adminApi'
-import type { AdminPost, AdminPostMeta, AiCandidate } from '../../lib/types'
+import type { AdminPageSummary, AdminPost, AdminPostMeta, AiCandidate } from '../../lib/types'
 import { useAdminAuth } from './AdminApp'
 import AiDraftPanel from './AiDraftPanel'
 import EditorBody, { type EditorBodyHandle } from './EditorBody'
@@ -49,6 +50,7 @@ interface FormState {
   date: string
   summary: string
   tags: string[]
+  page: string // "" => General (no owning page)
   published: boolean
   cover: string
 }
@@ -60,6 +62,7 @@ function emptyForm(): FormState {
     date: new Date().toISOString(),
     summary: '',
     tags: [],
+    page: '',
     published: false,
     cover: '',
   }
@@ -73,6 +76,7 @@ function formFromPost(post: AdminPost): FormState {
     date: m.date ?? '',
     summary: m.summary ?? '',
     tags: m.tags ?? [],
+    page: m.page ?? '',
     published: m.published ?? false,
     cover: m.cover ?? '',
   }
@@ -80,6 +84,7 @@ function formFromPost(post: AdminPost): FormState {
 
 export default function PostEditor({ mode }: PostEditorProps) {
   const { slug: routeSlug } = useParams<{ slug: string }>()
+  const [searchParams] = useSearchParams()
   const { writesEnabled, aiEnabled } = useAdminAuth()
   const navigate = useNavigate()
   const bodyRef = useRef<EditorBodyHandle | null>(null)
@@ -88,6 +93,8 @@ export default function PostEditor({ mode }: PostEditorProps) {
 
   const [form, setForm] = useState<FormState>(emptyForm)
   const [fileSha, setFileSha] = useState<string>('')
+  // Existing page slugs for the "Page" selector (General + one per page).
+  const [pages, setPages] = useState<AdminPageSummary[]>([])
   const [tagDraft, setTagDraft] = useState('')
   const [content, setContent] = useState<OutputData | undefined>(undefined)
   // Remount key for EditorBody so a conflict reload resets the editor contents.
@@ -137,6 +144,29 @@ export default function PostEditor({ mode }: PostEditorProps) {
     return () => controller.abort()
   }, [loadPost])
 
+  // Load the page list for the selector. In create mode, pre-scope form.page
+  // from ?page=<slug> once the list is known (only if that slug exists; else
+  // fall back to General) so the nested "Create post" flow files the new post
+  // under its page.
+  useEffect(() => {
+    const controller = new AbortController()
+    listPages(controller.signal)
+      .then((items) => {
+        if (controller.signal.aborted) return
+        setPages(items)
+        if (mode === 'create') {
+          const want = searchParams.get('page') ?? ''
+          if (want && items.some((p) => p.slug === want)) {
+            setForm((prev) => ({ ...prev, page: want }))
+          }
+        }
+      })
+      .catch(() => {
+        // The selector just shows General only if the list can't be loaded.
+      })
+    return () => controller.abort()
+  }, [mode, searchParams])
+
   const update = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }, [])
@@ -183,6 +213,7 @@ export default function PostEditor({ mode }: PostEditorProps) {
       date: form.date,
       summary: form.summary,
       tags: form.tags,
+      page: form.page,
       published: form.published,
       cover: form.cover,
     }),
@@ -398,6 +429,23 @@ export default function PostEditor({ mode }: PostEditorProps) {
             placeholder="images/cover.png"
             onChange={(e) => update('cover', e.target.value)}
           />
+        </label>
+
+        <label className={field}>
+          <span className={fieldLabel}>Page</span>
+          <select
+            className={input}
+            value={form.page}
+            disabled={readOnly}
+            onChange={(e) => update('page', e.target.value)}
+          >
+            <option value="">General (none)</option>
+            {pages.map((p) => (
+              <option key={p.slug} value={p.slug}>
+                {p.title}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="flex items-center gap-2">

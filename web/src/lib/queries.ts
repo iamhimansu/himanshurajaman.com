@@ -11,6 +11,7 @@ import {
 
 import { apiGet, qs } from './api'
 import type {
+  PageResponse,
   PostDetail,
   PostList,
   ResumeResponse,
@@ -55,6 +56,18 @@ export function usePost(slug: string) {
     queryKey: ['post', slug],
     queryFn: ({ signal }) =>
       apiGet<PostDetail>(`/api/posts/${encodeURIComponent(slug)}`, signal),
+    enabled: slug.length > 0,
+  })
+}
+
+/** A published page plus its published posts from /api/pages/{slug}. An unknown
+ *  or draft slug surfaces as an ApiError 404 (the Page route renders NotFound
+ *  inline). Disabled for an empty slug. */
+export function usePage(slug: string) {
+  return useQuery({
+    queryKey: ['page', slug],
+    queryFn: ({ signal }) =>
+      apiGet<PageResponse>(`/api/pages/${encodeURIComponent(slug)}`, signal),
     enabled: slug.length > 0,
   })
 }

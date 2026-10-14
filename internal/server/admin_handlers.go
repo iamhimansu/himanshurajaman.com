@@ -134,6 +134,7 @@ type adminPostMeta struct {
 	Updated   string   `json:"updated"`
 	Summary   string   `json:"summary"`
 	Tags      []string `json:"tags"`
+	Page      string   `json:"page"`
 	Published bool     `json:"published"`
 	Cover     string   `json:"cover"`
 }
@@ -171,6 +172,7 @@ func (s *Server) handleAdminGetPost(w http.ResponseWriter, r *http.Request) {
 		Updated:   ap.UpdatedAt,
 		Summary:   ap.Summary,
 		Tags:      ap.Tags,
+		Page:      ap.Page,
 		Published: ap.Published,
 		Cover:     ap.CoverImage,
 	}
@@ -391,6 +393,7 @@ func (s *Server) handleAdminResync(w http.ResponseWriter, r *http.Request) {
 		"commit":    res.CommitSHA,
 		"published": res.Published,
 		"drafts":    res.Drafts,
+		"pages":     res.Pages,
 		"skipped":   res.Skipped,
 		"images":    res.Images,
 	})
@@ -458,6 +461,7 @@ func (s *Server) validatePost(w http.ResponseWriter, req adminPostRequest) (*con
 		Updated:   m.Updated,
 		Summary:   m.Summary,
 		Tags:      m.Tags,
+		Page:      m.Page,
 		Published: m.Published,
 		Cover:     m.Cover,
 	}
@@ -485,6 +489,8 @@ func (s *Server) writeAdminWriteError(w http.ResponseWriter, op, slug string, er
 		writeJSON(w, http.StatusConflict, map[string]any{"error": "stale", "currentFileSha": stale.CurrentFileSHA})
 	case errors.Is(err, admin.ErrPostExists):
 		writeError(w, http.StatusConflict, "post already exists")
+	case errors.Is(err, admin.ErrPageExists):
+		writeError(w, http.StatusConflict, "page already exists")
 	case errors.Is(err, admin.ErrGitHubWrite):
 		s.log.Error(op, "slug", slug, "error", err.Error())
 		writeError(w, http.StatusBadGateway, "github write failed")

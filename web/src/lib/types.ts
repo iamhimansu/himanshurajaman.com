@@ -30,6 +30,23 @@ export interface PostList {
   nextCursor: string | null
 }
 
+/** The public page view payload from /api/pages/{slug}. `html` is already
+ *  sanitized server-side (same guarantee as PostDetail.html). */
+export interface PageDetail {
+  slug: string
+  title: string
+  html: string
+  summary: string | null
+  updated: string | null
+}
+
+/** GET /api/pages/{slug}: a published page plus its published posts in one
+ *  round-trip. `posts` is always a (possibly empty) array. */
+export interface PageResponse {
+  page: PageDetail
+  posts: PostSummary[]
+}
+
 /** One entry in /api/tags `items` (published-post counts only). */
 export interface TagCount {
   name: string
@@ -175,6 +192,9 @@ export interface AdminPostMeta {
   updated?: string
   summary: string
   tags: string[]
+  /** Owning page slug, or "" for the general blog. Always sent on write so the
+   *  current assignment is never dropped (the server omits it when empty). */
+  page: string
   published: boolean
   cover: string
 }
@@ -208,6 +228,62 @@ export interface AdminPostWriteResponse {
 /** 200 from DELETE /api/admin/posts/{slug}. */
 export interface AdminDeleteResponse {
   deleted: boolean
+}
+
+/* ---- Admin / Pages ------------------------------------------------------ */
+/* Mirror internal/server/admin_pages_handlers.go + internal/store/pages.go. */
+
+/** One row in GET /api/admin/pages (drafts included). `post_count` is the
+ *  number of posts filed under this page across ALL statuses. */
+export interface AdminPageSummary {
+  slug: string
+  title: string
+  nav: boolean
+  published: boolean
+  post_count: number
+}
+
+export interface AdminPageListResponse {
+  items: AdminPageSummary[]
+}
+
+/** Editable metadata block of a page (mirrors the server's `meta`). `navOrder`
+ *  is nullable: null leaves it absent (sorts last), a number pins the order. */
+export interface AdminPageMeta {
+  title: string
+  slug: string
+  nav: boolean
+  navLabel: string
+  navOrder: number | null
+  published: boolean
+  summary: string
+  updated?: string
+}
+
+/** GET /api/admin/pages/{slug} — full editor payload. `content` is the exact
+ *  Editor.js document to load into the editor. */
+export interface AdminPage {
+  slug: string
+  meta: AdminPageMeta
+  content: OutputData
+  fileSha: string
+}
+
+/** POST /api/admin/pages body (create). */
+export interface AdminPageCreateRequest {
+  meta: AdminPageMeta
+  content: OutputData
+}
+
+/** PUT /api/admin/pages/{slug} body (update) — create fields + required sha. */
+export interface AdminPageUpdateRequest extends AdminPageCreateRequest {
+  fileSha: string
+}
+
+/** 201/200 from POST/PUT /api/admin/pages. */
+export interface AdminPageWriteResponse {
+  slug: string
+  fileSha: string
 }
 
 /** 201 from POST /api/admin/images. */

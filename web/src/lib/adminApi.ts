@@ -20,6 +20,12 @@ import type {
   AdminDeleteResponse,
   AdminImageResponse,
   AdminMe,
+  AdminPage,
+  AdminPageCreateRequest,
+  AdminPageListResponse,
+  AdminPageSummary,
+  AdminPageUpdateRequest,
+  AdminPageWriteResponse,
   AdminPost,
   AdminPostCreateRequest,
   AdminPostListResponse,
@@ -53,6 +59,15 @@ export class AdminUnauthorizedError extends AdminApiError {
   constructor(message = 'unauthorized') {
     super(401, message)
     this.name = 'AdminUnauthorizedError'
+  }
+}
+
+/** 409 {error:"page already exists"} — create collided with an existing page
+ *  slug. Distinct from AdminStaleError (409 {error:"stale"}). */
+export class AdminPageExistsError extends AdminApiError {
+  constructor(message = 'page already exists') {
+    super(409, message)
+    this.name = 'AdminPageExistsError'
   }
 }
 
@@ -185,6 +200,9 @@ async function throwForStatus(res: Response): Promise<never> {
   if (res.status === 409 && body.error === 'stale') {
     throw new AdminStaleError(body.currentFileSha ?? '')
   }
+  if (res.status === 409 && body.error === 'page already exists') {
+    throw new AdminPageExistsError(message)
+  }
   if (res.status === 502) {
     throw new AdminGitHubError(message)
   }
@@ -281,9 +299,15 @@ export async function fetchMe(signal?: AbortSignal): Promise<AdminMe> {
 
 export async function listPosts(
   status: 'all' | 'draft' | 'published' = 'all',
+  page?: string,
   signal?: AbortSignal,
 ): Promise<AdminPostSummary[]> {
-  const res = await request<AdminPostListResponse>(`/api/admin/posts?status=${status}`, { signal })
+  // An empty/undefined page sends NO page filter, so the top-level Posts list
+  // keeps returning every post. A non-empty page appends &page=<slug>.
+  const path =
+    `/api/admin/posts?status=${status}` +
+    (page ? `&page=${encodeURIComponent(page)}` : '')
+  const res = await request<AdminPostListResponse>(path, { signal })
   return res.items ?? []
 }
 
@@ -310,6 +334,41 @@ export function deletePost(slug: string, fileSha?: string): Promise<AdminDeleteR
   // blob sha. Sending an empty string would fail the ^[0-9a-f]{40}$ check.
   const json = fileSha ? { fileSha } : {}
   return request<AdminDeleteResponse>(`/api/admin/posts/${encodeURIComponent(slug)}`, {
+    method: 'DELETE',
+    json,
+  })
+}
+
+/* ---- Pages -------------------------------------------------------------- */
+
+export async function listPages(signal?: AbortSignal): Promise<AdminPageSummary[]> {
+  const res = await request<AdminPageListResponse>('/api/admin/pages', { signal })
+  return res.items ?? []
+}
+
+export function getPage(slug: string, signal?: AbortSignal): Promise<AdminPage> {
+  return request<AdminPage>(`/api/admin/pages/${encodeURIComponent(slug)}`, { signal })
+}
+
+export function createPage(body: AdminPageCreateRequest): Promise<AdminPageWriteResponse> {
+  return request<AdminPageWriteResponse>('/api/admin/pages', { method: 'POST', json: body })
+}
+
+export function updatePage(
+  slug: string,
+  body: AdminPageUpdateRequest,
+): Promise<AdminPageWriteResponse> {
+  return request<AdminPageWriteResponse>(`/api/admin/pages/${encodeURIComponent(slug)}`, {
+    method: 'PUT',
+    json: body,
+  })
+}
+
+export function deletePage(slug: string, fileSha?: string): Promise<AdminDeleteResponse> {
+  // Omit fileSha when we don't have one: the server falls back to the cached
+  // blob sha. Sending an empty string would fail the ^[0-9a-f]{40}$ check.
+  const json = fileSha ? { fileSha } : {}
+  return request<AdminDeleteResponse>(`/api/admin/pages/${encodeURIComponent(slug)}`, {
     method: 'DELETE',
     json,
   })

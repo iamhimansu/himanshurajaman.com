@@ -1,23 +1,27 @@
 // App shell: a centered wide frame (max-w-wide, 64rem) holding the skip link, the
-// fixed top nav, main, and footer. The nav is a hardcoded five-item set
-// (independent of settings.nav); settings still supplies the brand title,
-// author, social links and the runtime accent. The accent is applied to :root
-// as a CSS custom property so tokens resolve to it everywhere.
+// fixed top nav, main, and footer. The nav is server-computed: settings.nav is
+// the fixed core items followed by published, nav-enabled pages (resolved on
+// the server, see internal/server/public.go buildNavJSON). Settings still
+// supplies the brand title, author, social links and the runtime accent. The
+// accent is applied to :root as a CSS custom property so tokens resolve to it
+// everywhere.
 
 import { useEffect } from 'react'
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
 
 import { useSettings } from '../lib/queries'
-import type { SocialLink } from '../lib/types'
+import type { NavLink as NavLinkItem, SocialLink } from '../lib/types'
 
-// Fixed primary navigation. Not derived from settings.nav by design.
-const NAV = [
+// The five fixed core items, in order. Used as the fallback while settings are
+// still loading (or if nav is missing/empty) so the header never breaks — the
+// server emits exactly these five first, followed by any nav pages.
+const CORE_NAV: NavLinkItem[] = [
   { label: 'Home', path: '/' },
   { label: 'Works', path: '/works' },
   { label: 'Blog', path: '/blog' },
   { label: 'Resume', path: '/resume' },
   { label: 'Contact', path: '/contact' },
-] as const
+]
 
 export default function Layout() {
   const { data: settings } = useSettings()
@@ -27,6 +31,10 @@ export default function Layout() {
   const social: SocialLink[] = settings?.social ?? []
   const siteTitle = settings?.title ?? 'Himanshu Raj Aman'
   const author = settings?.author ?? siteTitle
+  // Server-computed nav (core five + nav pages). Fall back to the core five
+  // while warming/pending or if the server somehow sent an empty list.
+  const nav: NavLinkItem[] =
+    settings?.nav && settings.nav.length > 0 ? settings.nav : CORE_NAV
 
   // Apply the runtime accent (sensible default lives in index.css).
   useEffect(() => {
@@ -49,7 +57,7 @@ export default function Layout() {
           aria-label="Primary"
           className="flex flex-wrap items-center divide-x divide-line text-sm"
         >
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}

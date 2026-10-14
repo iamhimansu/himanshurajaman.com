@@ -33,6 +33,8 @@ import type { AdminMe } from '../../lib/types'
 import Login from './Login'
 import PostList from './PostList'
 import PostEditor from './PostEditor'
+import PageList from './PageList'
+import PageEditor from './PageEditor'
 import ResumeEditor from './ResumeEditor'
 import {
   btn,
@@ -233,6 +235,36 @@ export default function AdminApp() {
           }
         />
         <Route
+          path="pages"
+          element={
+            <Protected authed={state === 'authed'}>
+              <AdminShell>
+                <PageList />
+              </AdminShell>
+            </Protected>
+          }
+        />
+        <Route
+          path="pages/new"
+          element={
+            <Protected authed={state === 'authed'}>
+              <AdminShell>
+                <PageEditor mode="create" />
+              </AdminShell>
+            </Protected>
+          }
+        />
+        <Route
+          path="pages/:slug/edit"
+          element={
+            <Protected authed={state === 'authed'}>
+              <AdminShell>
+                <PageEditor mode="edit" />
+              </AdminShell>
+            </Protected>
+          }
+        />
+        <Route
           path="resume"
           element={
             <Protected authed={state === 'authed'}>
@@ -306,6 +338,7 @@ function AdminShell({ children }: { children: ReactNode }) {
 
             <nav className="mt-5 flex flex-col gap-1" aria-label="Admin sections">
               <AdminNavLink to="/admin/posts">Posts</AdminNavLink>
+              <AdminNavLink to="/admin/pages">Pages</AdminNavLink>
               <AdminNavLink to="/admin/resume">Resume</AdminNavLink>
             </nav>
 

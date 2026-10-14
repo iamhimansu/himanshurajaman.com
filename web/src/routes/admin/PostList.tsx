@@ -53,7 +53,7 @@ export default function PostList() {
 
   const load = useCallback((signal?: AbortSignal) => {
     setStatus('loading')
-    listPosts('all', signal)
+    listPosts('all', undefined, signal)
       .then((items) => {
         if (signal?.aborted) return
         setPosts(items)

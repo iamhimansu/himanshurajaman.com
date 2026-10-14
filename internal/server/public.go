@@ -90,7 +90,47 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	} else {
 		settings["contactEnabled"] = json.RawMessage("false")
 	}
+
+	// nav is server-computed: the fixed core items followed by published,
+	// nav-enabled pages. It is set after loading so it overwrites any nav value
+	// present in the ingested site.json. Nav never 500s: a store or marshal
+	// error degrades to the core items only.
+	navPages, err := s.store.ListNavPages(r.Context())
+	if err != nil {
+		s.log.Error("settings nav", "error", err.Error())
+		navPages = nil
+	}
+	raw, merr := json.Marshal(buildNavJSON(navPages))
+	if merr != nil {
+		s.log.Error("settings nav marshal", "error", merr.Error())
+		raw = []byte("[]")
+	}
+	settings["nav"] = json.RawMessage(raw)
+
 	writeJSON(w, http.StatusOK, settings)
+}
+
+// navLink is one computed navigation item returned in settings.nav.
+type navLink struct {
+	Label string `json:"label"`
+	Path  string `json:"path"`
+}
+
+// buildNavJSON returns the computed nav: the five fixed core items in order,
+// followed by one item per published nav-enabled page (in ListNavPages order)
+// pointing at "/"+slug.
+func buildNavJSON(navPages []store.NavPage) []navLink {
+	out := []navLink{
+		{Label: "Home", Path: "/"},
+		{Label: "Works", Path: "/works"},
+		{Label: "Blog", Path: "/blog"},
+		{Label: "Resume", Path: "/resume"},
+		{Label: "Contact", Path: "/contact"},
+	}
+	for _, p := range navPages {
+		out = append(out, navLink{Label: p.Label, Path: "/" + p.Slug})
+	}
+	return out
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {

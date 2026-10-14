@@ -50,6 +50,19 @@ func (s *Server) handleSitemap(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	pages, err := s.store.SitemapPages(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "sitemap unavailable")
+		return
+	}
+	for _, pg := range pages {
+		u := sitemapURL{Loc: absURL(ss.BaseURL, "/"+pg.Slug)}
+		if pg.Updated != nil && *pg.Updated != "" {
+			u.LastMod = *pg.Updated
+		}
+		set.URLs = append(set.URLs, u)
+	}
+
 	body, err := xml.Marshal(set)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "sitemap unavailable")
