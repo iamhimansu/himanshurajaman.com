@@ -14,6 +14,7 @@ import (
 // builds it fully in memory, then Replace swaps it in atomically.
 type Dataset struct {
 	Posts     []content.Post
+	Pages     []content.Page
 	Resume    []ResumeSection
 	Settings  map[string]json.RawMessage
 	CommitSHA string
@@ -37,6 +38,7 @@ func (s *Store) Replace(ctx context.Context, ds *Dataset) error {
 		`DELETE FROM post_tags`,
 		`DELETE FROM posts_fts`,
 		`DELETE FROM posts`,
+		`DELETE FROM pages`,
 		`DELETE FROM tags`,
 		`DELETE FROM resume_sections`,
 		`DELETE FROM settings`,
@@ -51,11 +53,11 @@ func (s *Store) Replace(ctx context.Context, ds *Dataset) error {
 	for _, p := range ds.Posts {
 		res, err := tx.ExecContext(ctx, `
 			INSERT INTO posts
-				(slug,title,summary,document,html,published,published_at,updated_at,cover_image,reading_minutes,file_path,file_sha)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+				(slug,title,summary,document,html,published,published_at,updated_at,cover_image,reading_minutes,page,file_path,file_sha)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			p.Slug, p.Title, p.Summary, p.Document, p.HTML, boolInt(p.Published),
 			nullStr(p.PublishedAt), nullStr(p.UpdatedAt), nullStr(p.CoverImage),
-			p.ReadingMinutes, p.FilePath, p.FileSHA,
+			p.ReadingMinutes, nullStr(p.Page), p.FilePath, p.FileSHA,
 		)
 		if err != nil {
 			return fmt.Errorf("insert post %q: %w", p.Slug, err)
@@ -91,6 +93,18 @@ func (s *Store) Replace(ctx context.Context, ds *Dataset) error {
 			`INSERT INTO posts_fts(rowid,title,body,tags) VALUES(?,?,?,?)`,
 			postID, p.Title, p.PlainText, strings.Join(tagNames, " ")); err != nil {
 			return fmt.Errorf("insert fts %q: %w", p.Slug, err)
+		}
+	}
+
+	for _, pg := range ds.Pages {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO pages
+				(slug,title,nav,nav_label,nav_order,published,summary,updated,html,blocks,file_path,file_sha)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+			pg.Slug, pg.Title, boolInt(pg.Nav), nullStr(pg.NavLabel), pg.NavOrder,
+			boolInt(pg.Published), nullStr(pg.Summary), nullStr(pg.Updated),
+			pg.HTML, pg.Document, pg.FilePath, pg.FileSHA); err != nil {
+			return fmt.Errorf("insert page %q: %w", pg.Slug, err)
 		}
 	}
 

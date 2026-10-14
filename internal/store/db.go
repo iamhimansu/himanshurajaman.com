@@ -26,7 +26,10 @@ import (
 //
 // v2: the post body column `document` stores the Editor.js content OutputData
 // (the editable source), rendered to HTML on the server at ingest.
-const SchemaVersion = 2
+//
+// v3: adds the pages table (PMS page content type) + a nullable indexed
+// posts.page column filing a post under a page.
+const SchemaVersion = 3
 
 const (
 	defaultLimit = 10

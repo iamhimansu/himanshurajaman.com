@@ -23,6 +23,7 @@ type PostMeta struct {
 	Updated   string   `json:"updated,omitempty"`
 	Summary   string   `json:"summary"`
 	Tags      []string `json:"tags,omitempty"`
+	Page      string   `json:"page,omitempty"` // optional owning page slug
 	Published bool     `json:"published"`
 	Cover     string   `json:"cover,omitempty"`
 }
@@ -58,6 +59,7 @@ type ParsedPost struct {
 	Date      string // RFC3339 UTC
 	Updated   string // RFC3339 UTC or ""
 	Tags      []Tag
+	Page      string // owning page slug, or "" (unfiled)
 	Published bool
 	Cover     string
 
@@ -113,6 +115,11 @@ func ParsePost(filePath string, src []byte) (*ParsedPost, error) {
 		updated = t.UTC().Format(time.RFC3339)
 	}
 
+	page := strings.TrimSpace(pf.Meta.Page)
+	if page != "" && !slugRE.MatchString(page) {
+		return nil, fmt.Errorf("page %q must match ^[a-z0-9]+(?:-[a-z0-9]+)*$", page)
+	}
+
 	doc, docJSON, err := parseContent(pf.Content)
 	if err != nil {
 		return nil, err
@@ -127,6 +134,7 @@ func ParsePost(filePath string, src []byte) (*ParsedPost, error) {
 		Date:         date.UTC().Format(time.RFC3339),
 		Updated:      updated,
 		Tags:         normalizeTags(pf.Meta.Tags),
+		Page:         page,
 		Published:    pf.Meta.Published,
 		Cover:        strings.TrimSpace(pf.Meta.Cover),
 		Document:     doc,

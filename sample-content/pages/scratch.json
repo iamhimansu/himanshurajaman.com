@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "title": "Scratch",
+    "slug": "scratch",
+    "nav": false,
+    "published": false,
+    "summary": "An unpublished scratch page, used to exercise the draft path."
+  },
+  "content": {
+    "blocks": [
+      {
+        "type": "paragraph",
+        "data": { "text": "This page is a draft and should not be visible to visitors." }
+      }
+    ],
+    "version": "2.31.7"
+  }
+}

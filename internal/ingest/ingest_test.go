@@ -200,6 +200,92 @@ func TestRun_DuplicateSlugSkipped(t *testing.T) {
 	}
 }
 
+func TestRun_PagesIngest(t *testing.T) {
+	ctx := context.Background()
+	st, res := ingestLocal(t, testutil.WriteContentDir(t))
+
+	// The default fixture has one published page (dsa) and one draft (scratch).
+	if res.Pages != 2 {
+		t.Errorf("Pages = %d, want 2 (dsa + scratch)", res.Pages)
+	}
+
+	pg, err := st.GetPage(ctx, "dsa")
+	if err != nil {
+		t.Fatalf("GetPage(dsa): %v", err)
+	}
+	if pg.Title != "DSA" {
+		t.Errorf("page title = %q, want DSA", pg.Title)
+	}
+	if _, err := st.GetPage(ctx, "scratch"); err == nil {
+		t.Error("draft page scratch must not be retrievable via GetPage")
+	}
+
+	// AC-7: existing posts unchanged; hello-world is filed under dsa.
+	posts, err := st.PostsByPage(ctx, "dsa", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 1 || posts[0].Slug != "hello-world" {
+		t.Errorf("PostsByPage(dsa) = %v, want [hello-world]", posts)
+	}
+}
+
+func TestRun_NoPagesDirSucceeds(t *testing.T) {
+	ctx := context.Background()
+	cd := testutil.DefaultContentDir()
+	cd.Pages = nil // a repo with no pages/ dir
+	st, res := ingestLocal(t, cd.Write(t))
+
+	if res.Pages != 0 {
+		t.Errorf("Pages = %d, want 0", res.Pages)
+	}
+	// Posts still ingest normally.
+	if res.Published != 6 {
+		t.Errorf("Published = %d, want 6", res.Published)
+	}
+	if _, err := st.GetPost(ctx, "hello-world"); err != nil {
+		t.Errorf("posts should still ingest without a pages dir: %v", err)
+	}
+}
+
+// AC-2/3/5: an invalid, reserved, or duplicate page is skipped+logged while the
+// rest of the ingest succeeds.
+func TestRun_BadPagesSkippedRestIngests(t *testing.T) {
+	ctx := context.Background()
+	cd := testutil.DefaultContentDir()
+	// Invalid: empty title.
+	cd.Pages["invalid.json"] = []byte(`{"meta":{"title":"","slug":"invalid","nav":false,"published":true},"content":{}}`)
+	// Reserved slug.
+	cd.Pages["admin.json"] = []byte(`{"meta":{"title":"Admin","slug":"admin","nav":false,"published":true},"content":{}}`)
+	// Duplicate slug (second file in a subdir shares the stem "dsa").
+	cd.Pages["nested/dsa.json"] = testutil.PageJSON(testutil.PageInput{
+		Slug: "dsa", Title: "Dup DSA", Nav: true, Published: true, Body: "dup",
+	})
+
+	st, res := ingestLocal(t, cd.Write(t))
+
+	// invalid + reserved + duplicate = 3 skipped (counted alongside posts).
+	if res.Skipped != 3 {
+		t.Errorf("Skipped = %d, want 3 (invalid+reserved+duplicate page)", res.Skipped)
+	}
+	// Valid pages still ingest: dsa (first-seen) + scratch.
+	if res.Pages != 2 {
+		t.Errorf("Pages = %d, want 2 (dsa + scratch)", res.Pages)
+	}
+	// First-seen wins for the duplicate slug.
+	pg, err := st.GetPage(ctx, "dsa")
+	if err != nil {
+		t.Fatalf("GetPage(dsa): %v", err)
+	}
+	if pg.Title != "DSA" {
+		t.Errorf("first-seen dsa should win, got title %q", pg.Title)
+	}
+	// The reserved slug never ingests.
+	if _, err := st.GetAdminPage(ctx, "admin"); err == nil {
+		t.Error("reserved-slug page must not be ingested")
+	}
+}
+
 func TestBuildResumeValidation(t *testing.T) {
 	t.Run("valid flattens basics first then sections", func(t *testing.T) {
 		secs, err := ingest.BuildResume(testutil.ResumeJSON())

@@ -94,6 +94,80 @@ func TestParsePost_EmptyContentDefaults(t *testing.T) {
 	}
 }
 
+// AC-10: meta.page is validated by the slug pattern only (no existence check).
+func TestParsePost_PageField(t *testing.T) {
+	t.Run("valid page slug accepted", func(t *testing.T) {
+		src := `{"meta":{"title":"T","slug":"x","date":"2024-01-01T00:00:00Z","summary":"s","page":"dsa"},"content":{}}`
+		p, err := content.ParsePost("posts/x.json", []byte(src))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if p.Page != "dsa" {
+			t.Errorf("page = %q, want dsa", p.Page)
+		}
+	})
+
+	t.Run("bad page shape rejected", func(t *testing.T) {
+		src := `{"meta":{"title":"T","slug":"x","date":"2024-01-01T00:00:00Z","summary":"s","page":"Not_A_Slug"},"content":{}}`
+		if _, err := content.ParsePost("posts/x.json", []byte(src)); err == nil {
+			t.Error("expected error for bad page slug pattern")
+		}
+	})
+
+	t.Run("whitespace-only page treated as absent", func(t *testing.T) {
+		src := `{"meta":{"title":"T","slug":"x","date":"2024-01-01T00:00:00Z","summary":"s","page":"  "},"content":{}}`
+		p, err := content.ParsePost("posts/x.json", []byte(src))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if p.Page != "" {
+			t.Errorf("whitespace page should collapse to empty, got %q", p.Page)
+		}
+	})
+}
+
+// AC-8: an empty page is omitted from the canonical bytes; a post with/without a
+// page round-trips stably.
+func TestAssemblePostJSON_PageRoundTrip(t *testing.T) {
+	content0 := []byte(`{"blocks":[{"type":"paragraph","data":{"text":"b"}}]}`)
+
+	t.Run("no page omits the key and round-trips", func(t *testing.T) {
+		meta := content.PostMeta{Title: "T", Slug: "x", Date: "2024-01-01T00:00:00Z", Summary: "s", Published: true}
+		data, err := content.AssemblePostJSON(meta, content0)
+		if err != nil {
+			t.Fatalf("assemble: %v", err)
+		}
+		if strings.Contains(string(data), `"page"`) {
+			t.Errorf("empty page must be omitted from canonical bytes:\n%s", data)
+		}
+		p, err := content.ParsePost("posts/x.json", data)
+		if err != nil {
+			t.Fatalf("reparse: %v", err)
+		}
+		if p.Page != "" {
+			t.Errorf("page = %q, want empty", p.Page)
+		}
+	})
+
+	t.Run("with page round-trips", func(t *testing.T) {
+		meta := content.PostMeta{Title: "T", Slug: "x", Date: "2024-01-01T00:00:00Z", Summary: "s", Page: "dsa", Published: true}
+		data, err := content.AssemblePostJSON(meta, content0)
+		if err != nil {
+			t.Fatalf("assemble: %v", err)
+		}
+		if !strings.Contains(string(data), `"page": "dsa"`) {
+			t.Errorf("page should be present in canonical bytes:\n%s", data)
+		}
+		p, err := content.ParsePost("posts/x.json", data)
+		if err != nil {
+			t.Fatalf("reparse: %v", err)
+		}
+		if p.Page != "dsa" {
+			t.Errorf("page = %q, want dsa", p.Page)
+		}
+	})
+}
+
 func TestSlugify(t *testing.T) {
 	tests := []struct{ in, want string }{
 		{"Hello World", "hello-world"},

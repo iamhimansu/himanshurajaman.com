@@ -19,6 +19,7 @@ type PostInput struct {
 	Updated   string // RFC3339 or ""
 	Cover     string // "images/..." or ""
 	Tags      []string
+	Page      string // owning page slug, or "" (unfiled); omitted when empty
 	Published bool
 	Body      string          // becomes a single paragraph when Content is empty
 	Content   json.RawMessage // raw Editor.js OutputData; overrides Body when set
@@ -49,8 +50,63 @@ func PostJSON(in PostInput) []byte {
 	if len(in.Tags) > 0 {
 		meta["tags"] = in.Tags
 	}
+	if in.Page != "" {
+		meta["page"] = in.Page
+	}
 	if in.Cover != "" {
 		meta["cover"] = in.Cover
+	}
+	b, _ := json.Marshal(map[string]any{"meta": meta, "content": content})
+	return b
+}
+
+// PageInput describes a page fixture. When Content is empty a single paragraph
+// block carrying Body is generated, so most callers only set the metadata and a
+// Body string. NavOrder is a *int so an explicit 0 is distinguishable from
+// "absent".
+type PageInput struct {
+	Slug      string
+	Title     string
+	NavLabel  string
+	Summary   string
+	Updated   string // RFC3339 or ""
+	Nav       bool
+	Published bool
+	NavOrder  *int
+	Body      string          // becomes a single paragraph when Content is empty
+	Content   json.RawMessage // raw Editor.js OutputData; overrides Body when set
+}
+
+// PageJSON renders a page file ({meta, content}) as bytes that content.ParsePage
+// accepts. Optional fields are omitted when empty, mirroring PostJSON. The exact
+// byte layout is not canonical; callers that need the canonical form use
+// content.AssemblePageJSON.
+func PageJSON(in PageInput) []byte {
+	content := in.Content
+	if len(content) == 0 {
+		text := in.Body
+		if text == "" {
+			text = "Default page body."
+		}
+		content = paragraphDoc(text)
+	}
+	meta := map[string]any{
+		"title":     in.Title,
+		"slug":      in.Slug,
+		"nav":       in.Nav,
+		"published": in.Published,
+	}
+	if in.NavLabel != "" {
+		meta["navLabel"] = in.NavLabel
+	}
+	if in.NavOrder != nil {
+		meta["navOrder"] = *in.NavOrder
+	}
+	if in.Summary != "" {
+		meta["summary"] = in.Summary
+	}
+	if in.Updated != "" {
+		meta["updated"] = in.Updated
 	}
 	b, _ := json.Marshal(map[string]any{"meta": meta, "content": content})
 	return b
@@ -133,6 +189,7 @@ func TinyPNG() []byte {
 // (missing required file) can be constructed by clearing the field.
 type ContentDir struct {
 	Posts    map[string][]byte // filename (e.g. "hello-world.json") -> file bytes
+	Pages    map[string][]byte // filename (e.g. "dsa.json") -> file bytes, under pages/
 	Resume   []byte            // resume/resume.json; omitted when nil
 	Settings []byte            // settings/site.json; omitted when nil
 	Images   map[string][]byte // filename (e.g. "avatar.png") -> file bytes
@@ -149,7 +206,7 @@ func DefaultContentDir() ContentDir {
 		"hello-world.json": PostJSON(PostInput{
 			Slug: "hello-world", Title: "Hello, World", Summary: "First published post.",
 			Date: "2024-03-02T09:00:00Z", Updated: "2024-03-05T12:30:00Z",
-			Tags: []string{"Go", "Benchmarks", "Notes"}, Published: true,
+			Tags: []string{"Go", "Benchmarks", "Notes"}, Page: "dsa", Published: true,
 			Cover: "images/avatar.png", Content: SamplePostContent(),
 		}),
 		"alpha-post.json": PostJSON(PostInput{
@@ -183,8 +240,20 @@ func DefaultContentDir() ContentDir {
 			Body: "this draft mentions quokka which is unique",
 		}),
 	}
+	navOrder := 10
+	pages := map[string][]byte{
+		"dsa.json": PageJSON(PageInput{
+			Slug: "dsa", Title: "DSA", NavLabel: "DSA", Summary: "Data structures and algorithms.",
+			Nav: true, Published: true, NavOrder: &navOrder, Body: "DSA landing page body.",
+		}),
+		"scratch.json": PageJSON(PageInput{
+			Slug: "scratch", Title: "Scratch", Nav: false, Published: false,
+			Body: "A draft page not yet published.",
+		}),
+	}
 	return ContentDir{
 		Posts:    posts,
+		Pages:    pages,
 		Resume:   ResumeJSON(),
 		Settings: SettingsJSON(),
 		Images:   map[string][]byte{"avatar.png": TinyPNG()},
@@ -206,6 +275,9 @@ func (c ContentDir) Write(t testing.TB) string {
 	}
 	for name, data := range c.Posts {
 		write("posts/"+name, data)
+	}
+	for name, data := range c.Pages {
+		write("pages/"+name, data)
 	}
 	if c.Resume != nil {
 		write("resume/resume.json", c.Resume)

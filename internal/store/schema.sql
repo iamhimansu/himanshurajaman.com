@@ -16,10 +16,30 @@ CREATE TABLE posts (
   updated_at TEXT,
   cover_image TEXT,
   reading_minutes INTEGER NOT NULL DEFAULT 0,
+  page TEXT,                      -- NULL/absent => general blog (loose slug ref, intentionally not a FK)
   file_path TEXT NOT NULL,
   file_sha TEXT NOT NULL
 );
 CREATE INDEX idx_posts_pub_date ON posts(published, published_at DESC);
+CREATE INDEX idx_posts_page ON posts(page);
+
+CREATE TABLE pages (
+  id INTEGER PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  nav INTEGER NOT NULL DEFAULT 0,
+  nav_label TEXT,                 -- NULL when absent; callers fall back to title
+  nav_order INTEGER NOT NULL DEFAULT 1000000,
+  published INTEGER NOT NULL DEFAULT 0,
+  summary TEXT,                   -- NULL when absent
+  updated TEXT,                   -- RFC3339 UTC or NULL
+  html TEXT NOT NULL,
+  blocks TEXT NOT NULL,           -- canonical Editor.js content OutputData (edit source)
+  file_path TEXT NOT NULL,
+  file_sha TEXT NOT NULL
+);
+-- Nav resolution reads published + nav rows ordered by (nav_order, title).
+CREATE INDEX idx_pages_nav ON pages(published, nav, nav_order, title);
 
 CREATE TABLE tags (
   id INTEGER PRIMARY KEY,

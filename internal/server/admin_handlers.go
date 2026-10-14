@@ -141,7 +141,8 @@ type adminPostMeta struct {
 // --- post handlers ---
 
 func (s *Server) handleAdminListPosts(w http.ResponseWriter, r *http.Request) {
-	items, err := s.store.AdminListPosts(r.Context(), r.URL.Query().Get("status"))
+	q := r.URL.Query()
+	items, err := s.store.AdminListPosts(r.Context(), q.Get("status"), q.Get("page"))
 	if err != nil {
 		s.log.Error("admin list posts", "error", err.Error())
 		writeError(w, http.StatusInternalServerError, "internal error")

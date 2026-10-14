@@ -25,6 +25,8 @@ import (
 var (
 	// ErrPostExists → 409 "post already exists" (create collision).
 	ErrPostExists = errors.New("post already exists")
+	// ErrPageExists → 409 "page already exists" (create collision).
+	ErrPageExists = errors.New("page already exists")
 	// ErrGitHubWrite → 502: the GitHub write failed; nothing changed locally.
 	ErrGitHubWrite = errors.New("github write failed")
 	// ErrCacheAfterGitHub → 500: GitHub succeeded but the local cache update
@@ -171,6 +173,93 @@ func (s *Service) DeletePost(ctx context.Context, slug, sha string) error {
 
 	if derr := s.store.DeletePost(ctx, slug); derr != nil {
 		s.log.Error("post cache delete failed after github delete", "slug", slug, "error", derr.Error())
+		return ErrCacheAfterGitHub
+	}
+	return nil
+}
+
+// CreatePage writes a new page to GitHub and, only on success, upserts it into
+// the cache. p is the already-validated parse of data (data == the assembled
+// file bytes). Returns the new blob sha.
+func (s *Service) CreatePage(ctx context.Context, p *content.ParsedPage, data []byte) (fileSha string, err error) {
+	path := pagePath(p.Slug)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	exists, err := s.store.PageExists(ctx, p.Slug)
+	if err != nil {
+		return "", err
+	}
+	if exists {
+		return "", ErrPageExists
+	}
+
+	newSHA, _, gerr := s.gh.PutContents(ctx, s.cfg.RepoOwner, s.cfg.RepoName, path, s.cfg.ContentRef, "Create page: "+p.Slug, data, "")
+	if errors.Is(gerr, github.ErrConflict) {
+		return "", ErrPageExists
+	}
+	if gerr != nil {
+		return "", fmt.Errorf("%w: %v", ErrGitHubWrite, gerr)
+	}
+
+	if cerr := s.cachePage(ctx, p, path, newSHA); cerr != nil {
+		s.log.Error("page cache update failed after github write", "slug", p.Slug, "error", cerr.Error())
+		return "", ErrCacheAfterGitHub
+	}
+	return newSHA, nil
+}
+
+// UpdatePage updates an existing page. prevSHA is the client's expected blob
+// sha; a mismatch yields *StaleError after syncing the cache to the live repo
+// content. Slug immutability is enforced by the handler.
+func (s *Service) UpdatePage(ctx context.Context, p *content.ParsedPage, data []byte, prevSHA string) (fileSha string, err error) {
+	path := pagePath(p.Slug)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	newSHA, _, gerr := s.gh.PutContents(ctx, s.cfg.RepoOwner, s.cfg.RepoName, path, s.cfg.ContentRef, "Update page: "+p.Slug, data, prevSHA)
+	if errors.Is(gerr, github.ErrConflict) {
+		return "", s.syncPageAfterConflict(ctx, path, p.Slug)
+	}
+	if gerr != nil {
+		return "", fmt.Errorf("%w: %v", ErrGitHubWrite, gerr)
+	}
+
+	if cerr := s.cachePage(ctx, p, path, newSHA); cerr != nil {
+		s.log.Error("page cache update failed after github write", "slug", p.Slug, "error", cerr.Error())
+		return "", ErrCacheAfterGitHub
+	}
+	return newSHA, nil
+}
+
+// DeletePage deletes a page. sha is the client's expected blob sha; when empty
+// the cached sha is used. A stale sha yields *StaleError. A GitHub 404 (already
+// gone) is treated as success and the cache row is removed.
+func (s *Service) DeletePage(ctx context.Context, slug, sha string) error {
+	path := pagePath(slug)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if sha == "" {
+		cached, cerr := s.store.GetPageFileSHA(ctx, slug)
+		if cerr != nil && !errors.Is(cerr, store.ErrNotFound) {
+			return cerr
+		}
+		sha = cached
+	}
+
+	gerr := s.gh.DeleteContents(ctx, s.cfg.RepoOwner, s.cfg.RepoName, path, s.cfg.ContentRef, "Delete page: "+slug, sha)
+	switch {
+	case errors.Is(gerr, github.ErrConflict):
+		return s.syncPageAfterConflict(ctx, path, slug)
+	case errors.Is(gerr, github.ErrNotFound):
+		// Already gone on GitHub: idempotent, fall through to cache removal.
+	case gerr != nil:
+		return fmt.Errorf("%w: %v", ErrGitHubWrite, gerr)
+	}
+
+	if derr := s.store.DeletePage(ctx, slug); derr != nil {
+		s.log.Error("page cache delete failed after github delete", "slug", slug, "error", derr.Error())
 		return ErrCacheAfterGitHub
 	}
 	return nil
@@ -346,3 +435,54 @@ func (s *Service) cachePost(ctx context.Context, p *content.ParsedPost, path, fi
 }
 
 func postPath(slug string) string { return "posts/" + slug + ".json" }
+
+func pagePath(slug string) string { return "pages/" + slug + ".json" }
+
+// cachePage renders a parsed page and upserts it into the cache with the given
+// repo path + blob sha, matching ingest's row shape.
+func (s *Service) cachePage(ctx context.Context, p *content.ParsedPage, path, fileSHA string) error {
+	html, _, err := s.renderer.RenderDocument(p.Document)
+	if err != nil {
+		return err
+	}
+	page := content.Page{
+		Slug:      p.Slug,
+		Title:     p.Title,
+		Nav:       p.Nav,
+		NavLabel:  p.NavLabel,
+		NavOrder:  p.NavOrder,
+		Published: p.Published,
+		Summary:   p.Summary,
+		Updated:   p.Updated,
+		HTML:      html,
+		Document:  string(p.DocumentJSON),
+		FilePath:  path,
+		FileSHA:   fileSHA,
+	}
+	return s.store.UpsertPage(ctx, page)
+}
+
+// syncPageAfterConflict re-fetches the live repo content after an optimistic-
+// concurrency conflict and reconciles the cache to it, then returns a
+// *StaleError carrying the live sha. A live ErrNotFound (concurrent external
+// delete) removes the cache row and returns an empty currentFileSha. The caller
+// holds the write lock.
+func (s *Service) syncPageAfterConflict(ctx context.Context, path, slug string) error {
+	liveData, liveSHA, gerr := s.gh.GetContents(ctx, s.cfg.RepoOwner, s.cfg.RepoName, path, s.cfg.ContentRef)
+	if errors.Is(gerr, github.ErrNotFound) {
+		_ = s.store.DeletePage(ctx, slug)
+		return &StaleError{CurrentFileSHA: ""}
+	}
+	if gerr != nil {
+		s.log.Error("page conflict re-fetch failed", "slug", slug, "error", gerr.Error())
+		return &StaleError{CurrentFileSHA: ""}
+	}
+	if parsed, perr := content.ParsePage(path, liveData); perr == nil {
+		if cerr := s.cachePage(ctx, parsed, path, liveSHA); cerr != nil {
+			s.log.Error("page cache sync after conflict failed", "slug", slug, "error", cerr.Error())
+		}
+	} else {
+		s.log.Warn("live page content invalid during conflict sync", "slug", slug, "error", perr.Error())
+	}
+	return &StaleError{CurrentFileSHA: liveSHA}
+}

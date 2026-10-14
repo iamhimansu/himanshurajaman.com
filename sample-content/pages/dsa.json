@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "title": "Data Structures & Algorithms",
+    "slug": "dsa",
+    "nav": true,
+    "navLabel": "DSA",
+    "navOrder": 10,
+    "published": true,
+    "summary": "Notes, write-ups, and practice problems on data structures and algorithms."
+  },
+  "content": {
+    "blocks": [
+      {
+        "type": "header",
+        "data": { "text": "Data Structures & Algorithms", "level": 2 }
+      },
+      {
+        "type": "paragraph",
+        "data": {
+          "text": "This page collects everything I write about data structures and algorithms. Posts filed under this page appear below."
+        }
+      }
+    ],
+    "version": "2.31.7"
+  }
+}

@@ -6,6 +6,7 @@
     "updated": "2024-03-05T12:30:00Z",
     "summary": "A first published post, with a code block and a quick benchmark note to exercise rendering and search.",
     "tags": ["Go", "Benchmarks", "Notes"],
+    "page": "dsa",
     "published": true,
     "cover": "images/avatar.png"
   },

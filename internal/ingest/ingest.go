@@ -37,6 +37,7 @@ type Result struct {
 	Ref       string
 	Published int
 	Drafts    int
+	Pages     int
 	Skipped   int
 	Images    int
 }
@@ -52,6 +53,7 @@ func (ing *Ingester) Run(ctx context.Context) (*Result, error) {
 
 	var (
 		postFiles    []source.File
+		pageFiles    []source.File
 		imageFiles   []source.File
 		resumeFile   *source.File
 		settingsFile *source.File
@@ -61,6 +63,8 @@ func (ing *Ingester) Run(ctx context.Context) (*Result, error) {
 		switch {
 		case strings.HasPrefix(f.Path, "posts/") && strings.HasSuffix(f.Path, ".json"):
 			postFiles = append(postFiles, f)
+		case strings.HasPrefix(f.Path, "pages/") && strings.HasSuffix(f.Path, ".json"):
+			pageFiles = append(pageFiles, f)
 		case f.Path == "resume/resume.json":
 			rf := f
 			resumeFile = &rf
@@ -131,6 +135,7 @@ func (ing *Ingester) Run(ctx context.Context) (*Result, error) {
 			CoverImage:     parsed.Cover,
 			ReadingMinutes: content.ReadingMinutes(plain),
 			Tags:           parsed.Tags,
+			Page:           parsed.Page,
 			FilePath:       pf.Path,
 			FileSHA:        content.GitBlobSHA(pf.Data),
 		})
@@ -139,6 +144,48 @@ func (ing *Ingester) Run(ctx context.Context) (*Result, error) {
 		} else {
 			drafts++
 		}
+	}
+
+	// Pages are OPTIONAL: a repo with no pages/ dir ingests successfully (nav
+	// falls back to the core items). Each invalid/reserved/duplicate page is
+	// skipped and logged, never aborting the ingest — same semantics as posts.
+	sort.Slice(pageFiles, func(i, j int) bool { return pageFiles[i].Path < pageFiles[j].Path })
+	var pages []content.Page
+	seenPages := map[string]string{} // slug -> file path
+	for _, pf := range pageFiles {
+		parsed, err := content.ParsePage(pf.Path, pf.Data)
+		if err != nil {
+			ing.log.Warn("skipping invalid page", "file", pf.Path, "error", err.Error())
+			skipped++
+			continue
+		}
+		if first, dup := seenPages[parsed.Slug]; dup {
+			ing.log.Warn("skipping duplicate page slug", "file", pf.Path, "slug", parsed.Slug, "firstSeen", first)
+			skipped++
+			continue
+		}
+		html, _, err := ing.renderer.RenderDocument(parsed.Document)
+		if err != nil {
+			ing.log.Warn("skipping page: render failed", "file", pf.Path, "error", err.Error())
+			skipped++
+			continue
+		}
+		seenPages[parsed.Slug] = pf.Path
+
+		pages = append(pages, content.Page{
+			Slug:      parsed.Slug,
+			Title:     parsed.Title,
+			Nav:       parsed.Nav,
+			NavLabel:  parsed.NavLabel,
+			NavOrder:  parsed.NavOrder,
+			Published: parsed.Published,
+			Summary:   parsed.Summary,
+			Updated:   parsed.Updated,
+			HTML:      html,
+			Document:  string(parsed.DocumentJSON),
+			FilePath:  pf.Path,
+			FileSHA:   content.GitBlobSHA(pf.Data),
+		})
 	}
 
 	// Stage images to a fresh directory BEFORE the DB swap. If the DB write
@@ -151,6 +198,7 @@ func (ing *Ingester) Run(ctx context.Context) (*Result, error) {
 
 	ds := &store.Dataset{
 		Posts:     posts,
+		Pages:     pages,
 		Resume:    resume,
 		Settings:  settings,
 		CommitSHA: snap.CommitSHA,
@@ -170,6 +218,7 @@ func (ing *Ingester) Run(ctx context.Context) (*Result, error) {
 		Ref:       snap.Ref,
 		Published: published,
 		Drafts:    drafts,
+		Pages:     len(pages),
 		Skipped:   skipped,
 		Images:    imgCount,
 	}, nil

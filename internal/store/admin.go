@@ -32,14 +32,17 @@ type AdminPost struct {
 	PublishedAt string
 	UpdatedAt   string
 	CoverImage  string
+	Page        string
 	FileSHA     string
 	Tags        []string
 }
 
 // AdminListPosts returns all posts (drafts included), newest first by
 // (published_at DESC, id DESC). status filters published IN (…): "published",
-// "draft", or (default/unknown) "all".
-func (s *Store) AdminListPosts(ctx context.Context, status string) ([]AdminPostSummary, error) {
+// "draft", or (default/unknown) "all". page == "" means no page filter (every
+// post, unchanged behavior); page != "" appends "AND page = ?" so only posts
+// filed under that slug are returned.
+func (s *Store) AdminListPosts(ctx context.Context, status, page string) ([]AdminPostSummary, error) {
 	var where string
 	switch status {
 	case "published":
@@ -50,10 +53,20 @@ func (s *Store) AdminListPosts(ctx context.Context, status string) ([]AdminPostS
 		where = ``
 	}
 
+	var args []any
+	if page != "" {
+		if where == "" {
+			where = ` WHERE page = ?`
+		} else {
+			where += ` AND page = ?`
+		}
+		args = append(args, page)
+	}
+
 	rows, err := s.reader.QueryContext(ctx, `
 		SELECT id, slug, title, summary, published, published_at, updated_at
 		FROM posts`+where+`
-		ORDER BY published_at DESC, id DESC`)
+		ORDER BY published_at DESC, id DESC`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,11 +125,12 @@ func (s *Store) GetAdminPost(ctx context.Context, slug string) (*AdminPost, erro
 		pubAt sql.NullString
 		updAt sql.NullString
 		cover sql.NullString
+		page  sql.NullString
 	)
 	err := s.reader.QueryRowContext(ctx, `
-		SELECT id, slug, title, summary, document, published, published_at, updated_at, cover_image, file_sha
+		SELECT id, slug, title, summary, document, published, published_at, updated_at, cover_image, page, file_sha
 		FROM posts WHERE slug = ?`, slug).
-		Scan(&id, &p.Slug, &p.Title, &p.Summary, &p.Document, &pub, &pubAt, &updAt, &cover, &p.FileSHA)
+		Scan(&id, &p.Slug, &p.Title, &p.Summary, &p.Document, &pub, &pubAt, &updAt, &cover, &page, &p.FileSHA)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -127,6 +141,7 @@ func (s *Store) GetAdminPost(ctx context.Context, slug string) (*AdminPost, erro
 	p.PublishedAt = pubAt.String
 	p.UpdatedAt = updAt.String
 	p.CoverImage = cover.String
+	p.Page = page.String
 
 	tagsByPost, err := s.tagsForPosts(ctx, []int64{id})
 	if err != nil {
@@ -156,11 +171,11 @@ func (s *Store) UpsertPost(ctx context.Context, p content.Post) error {
 	case errors.Is(err, sql.ErrNoRows):
 		res, ierr := tx.ExecContext(ctx, `
 			INSERT INTO posts
-				(slug,title,summary,document,html,published,published_at,updated_at,cover_image,reading_minutes,file_path,file_sha)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+				(slug,title,summary,document,html,published,published_at,updated_at,cover_image,reading_minutes,page,file_path,file_sha)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			p.Slug, p.Title, p.Summary, p.Document, p.HTML, boolInt(p.Published),
 			nullStr(p.PublishedAt), nullStr(p.UpdatedAt), nullStr(p.CoverImage),
-			p.ReadingMinutes, p.FilePath, p.FileSHA)
+			p.ReadingMinutes, nullStr(p.Page), p.FilePath, p.FileSHA)
 		if ierr != nil {
 			return ierr
 		}
@@ -173,11 +188,11 @@ func (s *Store) UpsertPost(ctx context.Context, p content.Post) error {
 		if _, uerr := tx.ExecContext(ctx, `
 			UPDATE posts SET
 				title=?,summary=?,document=?,html=?,published=?,published_at=?,updated_at=?,
-				cover_image=?,reading_minutes=?,file_path=?,file_sha=?
+				cover_image=?,reading_minutes=?,page=?,file_path=?,file_sha=?
 			WHERE id=?`,
 			p.Title, p.Summary, p.Document, p.HTML, boolInt(p.Published),
 			nullStr(p.PublishedAt), nullStr(p.UpdatedAt), nullStr(p.CoverImage),
-			p.ReadingMinutes, p.FilePath, p.FileSHA, id); uerr != nil {
+			p.ReadingMinutes, nullStr(p.Page), p.FilePath, p.FileSHA, id); uerr != nil {
 			return uerr
 		}
 		if _, derr := tx.ExecContext(ctx, `DELETE FROM post_tags WHERE post_id=?`, id); derr != nil {
@@ -286,6 +301,92 @@ func (s *Store) PostExists(ctx context.Context, slug string) (bool, error) {
 func (s *Store) GetPostFileSHA(ctx context.Context, slug string) (string, error) {
 	var sha string
 	err := s.reader.QueryRowContext(ctx, `SELECT file_sha FROM posts WHERE slug=?`, slug).Scan(&sha)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return sha, nil
+}
+
+// UpsertPage inserts or updates a single page in one writer transaction. Pages
+// carry no FTS/tag state, so it is simpler than UpsertPost: SELECT id by slug,
+// then INSERT or UPDATE every column.
+func (s *Store) UpsertPage(ctx context.Context, pg content.Page) error {
+	tx, err := s.writer.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var id int64
+	err = tx.QueryRowContext(ctx, `SELECT id FROM pages WHERE slug = ?`, pg.Slug).Scan(&id)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		if _, ierr := tx.ExecContext(ctx, `
+			INSERT INTO pages
+				(slug,title,nav,nav_label,nav_order,published,summary,updated,html,blocks,file_path,file_sha)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+			pg.Slug, pg.Title, boolInt(pg.Nav), nullStr(pg.NavLabel), pg.NavOrder,
+			boolInt(pg.Published), nullStr(pg.Summary), nullStr(pg.Updated),
+			pg.HTML, pg.Document, pg.FilePath, pg.FileSHA); ierr != nil {
+			return ierr
+		}
+	case err != nil:
+		return err
+	default:
+		if _, uerr := tx.ExecContext(ctx, `
+			UPDATE pages SET
+				title=?,nav=?,nav_label=?,nav_order=?,published=?,summary=?,updated=?,
+				html=?,blocks=?,file_path=?,file_sha=?
+			WHERE id=?`,
+			pg.Title, boolInt(pg.Nav), nullStr(pg.NavLabel), pg.NavOrder,
+			boolInt(pg.Published), nullStr(pg.Summary), nullStr(pg.Updated),
+			pg.HTML, pg.Document, pg.FilePath, pg.FileSHA, id); uerr != nil {
+			return uerr
+		}
+	}
+	return tx.Commit()
+}
+
+// DeletePage removes a page by slug in one writer transaction. It is a no-op if
+// the slug is absent. Posts filed under the page keep their page value (now
+// dangling), consistent with FR-POST-5.
+func (s *Store) DeletePage(ctx context.Context, slug string) error {
+	tx, err := s.writer.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM pages WHERE slug=?`, slug)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil // no-op
+	}
+	return tx.Commit()
+}
+
+// PageExists reports whether a page with slug exists (drafts included).
+func (s *Store) PageExists(ctx context.Context, slug string) (bool, error) {
+	var one int
+	err := s.reader.QueryRowContext(ctx, `SELECT 1 FROM pages WHERE slug=?`, slug).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// GetPageFileSHA returns the stored repo blob sha for a page, or ErrNotFound.
+func (s *Store) GetPageFileSHA(ctx context.Context, slug string) (string, error) {
+	var sha string
+	err := s.reader.QueryRowContext(ctx, `SELECT file_sha FROM pages WHERE slug=?`, slug).Scan(&sha)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrNotFound
 	}

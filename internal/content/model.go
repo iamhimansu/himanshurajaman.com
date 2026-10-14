@@ -23,9 +23,28 @@ type Post struct {
 	UpdatedAt      string // RFC3339 (UTC) or "", from the post meta `updated`
 	CoverImage     string
 	ReadingMinutes int
+	Page           string // owning page slug, or "" (unfiled)
 	Tags           []Tag
 	FilePath       string
 	FileSHA        string // git blob SHA (matches GitHub's for Phase 4 concurrency)
+}
+
+// Page is a fully parsed, rendered page ready to be written to the cache
+// (parallel to Post). Pages are not time-ordered and are not in the FTS index,
+// so there is no date or PlainText.
+type Page struct {
+	Slug      string
+	Title     string
+	Nav       bool
+	NavLabel  string
+	NavOrder  int
+	Published bool
+	Summary   string
+	Updated   string // RFC3339 (UTC) or ""
+	HTML      string // rendered then sanitized
+	Document  string // canonical Editor.js content OutputData (the edit source)
+	FilePath  string
+	FileSHA   string // git blob SHA (matches GitHub's for concurrency)
 }
 
 // Tag is a post tag: a display name plus its slug.

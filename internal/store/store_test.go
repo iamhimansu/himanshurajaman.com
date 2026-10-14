@@ -243,6 +243,210 @@ func TestCursor_BadCursorRejected(t *testing.T) {
 	}
 }
 
+func makePage(slug string, published, nav bool) content.Page {
+	return content.Page{
+		Slug: slug, Title: "Page " + slug, Nav: nav, NavOrder: content.NavOrderDefault,
+		Published: published, HTML: "<p>page</p>", Document: `{"blocks":[]}`,
+		FilePath: "pages/" + slug + ".json", FileSHA: "cafebabecafebabecafebabecafebabecafebabe",
+	}
+}
+
+func TestUpsertPage_GetPublishedVsDraft(t *testing.T) {
+	ctx := context.Background()
+	st := openStore(t)
+
+	if err := st.UpsertPage(ctx, makePage("pub", true, true)); err != nil {
+		t.Fatalf("upsert pub: %v", err)
+	}
+	if err := st.UpsertPage(ctx, makePage("draft", false, false)); err != nil {
+		t.Fatalf("upsert draft: %v", err)
+	}
+
+	if pg, err := st.GetPage(ctx, "pub"); err != nil || pg.Slug != "pub" {
+		t.Fatalf("GetPage(pub) = %+v err=%v, want published page", pg, err)
+	}
+	if _, err := st.GetPage(ctx, "draft"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("GetPage(draft) = %v, want ErrNotFound", err)
+	}
+	if _, err := st.GetPage(ctx, "missing"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("GetPage(missing) = %v, want ErrNotFound", err)
+	}
+
+	// GetAdminPage returns drafts too.
+	if ap, err := st.GetAdminPage(ctx, "draft"); err != nil || ap.Published {
+		t.Errorf("GetAdminPage(draft) = %+v err=%v, want draft present", ap, err)
+	}
+
+	// Upsert is an update when the slug already exists.
+	updated := makePage("pub", true, true)
+	updated.Title = "Renamed"
+	if err := st.UpsertPage(ctx, updated); err != nil {
+		t.Fatalf("re-upsert: %v", err)
+	}
+	if ap, _ := st.GetAdminPage(ctx, "pub"); ap.Title != "Renamed" {
+		t.Errorf("update not applied: title=%q", ap.Title)
+	}
+}
+
+// AC-23: ListPages post counts span all statuses; AC-11/12: ListNavPages
+// filters+orders published nav pages.
+func TestListPages_And_ListNavPages(t *testing.T) {
+	st := ingestLocal(t)
+	ctx := context.Background()
+
+	pages, err := st.ListPages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]store.AdminPageSummary{}
+	for _, p := range pages {
+		counts[p.Slug] = p
+	}
+	// The default fixture has a published "dsa" (nav) and a draft "scratch".
+	if _, ok := counts["dsa"]; !ok {
+		t.Fatalf("ListPages missing dsa: %+v", pages)
+	}
+	if _, ok := counts["scratch"]; !ok {
+		t.Fatalf("ListPages missing draft scratch (admin sees drafts): %+v", pages)
+	}
+	// hello-world is filed under dsa, so dsa's post count is 1 (across statuses).
+	if counts["dsa"].PostCount != 1 {
+		t.Errorf("dsa post_count = %d, want 1", counts["dsa"].PostCount)
+	}
+	if counts["scratch"].PostCount != 0 {
+		t.Errorf("scratch post_count = %d, want 0", counts["scratch"].PostCount)
+	}
+
+	nav, err := st.ListNavPages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only the published nav page shows; the draft scratch is excluded.
+	if len(nav) != 1 || nav[0].Slug != "dsa" {
+		t.Fatalf("ListNavPages = %+v, want only dsa", nav)
+	}
+	// Label falls back from nav_label (DSA) which was set in the fixture.
+	if nav[0].Label != "DSA" {
+		t.Errorf("nav label = %q, want DSA", nav[0].Label)
+	}
+}
+
+func TestListNavPages_OrderingAndLabelFallback(t *testing.T) {
+	ctx := context.Background()
+	st := openStore(t)
+
+	ordB := 5
+	ordA := 20
+	pB := makePage("bbb", true, true)
+	pB.NavOrder = ordB
+	pB.NavLabel = "" // falls back to title "Page bbb"
+	pA := makePage("aaa", true, true)
+	pA.NavOrder = ordA
+	pA.NavLabel = "Custom A"
+	// A published non-nav page must be excluded.
+	pNoNav := makePage("ccc", true, false)
+	// A draft nav page must be excluded.
+	pDraft := makePage("ddd", false, true)
+
+	for _, p := range []content.Page{pA, pB, pNoNav, pDraft} {
+		if err := st.UpsertPage(ctx, p); err != nil {
+			t.Fatalf("upsert %s: %v", p.Slug, err)
+		}
+	}
+
+	nav, err := st.ListNavPages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nav) != 2 {
+		t.Fatalf("ListNavPages len = %d, want 2 (%+v)", len(nav), nav)
+	}
+	// Ordered by nav_order ASC: bbb(5) before aaa(20).
+	if nav[0].Slug != "bbb" || nav[1].Slug != "aaa" {
+		t.Errorf("nav order = %+v, want bbb then aaa", nav)
+	}
+	if nav[0].Label != "Page bbb" {
+		t.Errorf("bbb label = %q, want title fallback 'Page bbb'", nav[0].Label)
+	}
+	if nav[1].Label != "Custom A" {
+		t.Errorf("aaa label = %q, want 'Custom A'", nav[1].Label)
+	}
+}
+
+// AC-9 / PostsByPage: a dangling meta.page post still lists in /blog; PostsByPage
+// honors the publishedOnly filter.
+func TestPostsByPage_PublishedOnlyVsAll(t *testing.T) {
+	ctx := context.Background()
+	st := openStore(t)
+
+	pub := makePost("filed-pub", true)
+	pub.Page = "dsa"
+	draft := makePost("filed-draft", false)
+	draft.Page = "dsa"
+	unfiled := makePost("unfiled", true)
+
+	ds := &store.Dataset{
+		Posts:     []content.Post{pub, draft, unfiled},
+		CommitSHA: "c", Ref: "local", SyncedAt: time.Now(),
+	}
+	if err := st.Replace(ctx, ds); err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+
+	// published-only returns only the published filed post.
+	only, err := st.PostsByPage(ctx, "dsa", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(only) != 1 || only[0].Slug != "filed-pub" {
+		t.Errorf("PostsByPage(dsa, published) = %+v, want [filed-pub]", slugsOf(only))
+	}
+
+	// all statuses returns both.
+	all, err := st.PostsByPage(ctx, "dsa", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 2 {
+		t.Errorf("PostsByPage(dsa, all) len = %d, want 2 (%v)", len(all), slugsOf(all))
+	}
+
+	if n, err := st.CountPostsByPage(ctx, "dsa"); err != nil || n != 2 {
+		t.Errorf("CountPostsByPage(dsa) = %d err=%v, want 2", n, err)
+	}
+
+	// The dangling-page post (no matching page row) still appears in /blog.
+	list, _, err := st.ListPosts(ctx, store.ListParams{Limit: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, p := range list {
+		seen[p.Slug] = true
+	}
+	if !seen["filed-pub"] {
+		t.Error("a post with meta.page should still appear in the public blog list")
+	}
+}
+
+func TestSitemapPages_PublishedOnly(t *testing.T) {
+	ctx := context.Background()
+	st := openStore(t)
+	if err := st.UpsertPage(ctx, makePage("pub", true, true)); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpsertPage(ctx, makePage("draft", false, false)); err != nil {
+		t.Fatal(err)
+	}
+	pages, err := st.SitemapPages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pages) != 1 || pages[0].Slug != "pub" {
+		t.Errorf("SitemapPages = %+v, want only pub", pages)
+	}
+}
+
 // --- helpers ---
 
 func makePost(slug string, published bool) content.Post {

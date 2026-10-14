@@ -272,6 +272,197 @@ func TestCreatePost_Success(t *testing.T) {
 	}
 }
 
+// --- page write-through (AC-24/25/26) ---
+
+func pageBytes(slug, title string) []byte {
+	return testutil.PageJSON(testutil.PageInput{
+		Slug: slug, Title: title, Nav: true, Published: true, Body: title + " body",
+	})
+}
+
+func parsePage(t *testing.T, slug, title string) (*content.ParsedPage, []byte) {
+	t.Helper()
+	data := pageBytes(slug, title)
+	p, err := content.ParsePage("pages/"+slug+".json", data)
+	if err != nil {
+		t.Fatalf("parse page: %v", err)
+	}
+	return p, data
+}
+
+func seedPage(t *testing.T, st *store.Store, slug, title, fileSHA string) {
+	t.Helper()
+	err := st.UpsertPage(context.Background(), content.Page{
+		Slug: slug, Title: title, Nav: true, NavOrder: content.NavOrderDefault,
+		Published: true, HTML: "<p>x</p>", Document: `{"blocks":[]}`,
+		FilePath: "pages/" + slug + ".json", FileSHA: fileSHA,
+	})
+	if err != nil {
+		t.Fatalf("seed page: %v", err)
+	}
+}
+
+func TestCreatePage_Success(t *testing.T) {
+	ctx := context.Background()
+	m := testutil.NewGitHubMock(t)
+	svc, st := newService(t, m)
+	const newSHA = "5555555555555555555555555555555555555555"
+	m.OnPutContents("pages/p1.json", testutil.GHWrite(201, newSHA, "commit-sha"))
+
+	created, data := parsePage(t, "p1", "Brand New Page")
+	gotSHA, err := svc.CreatePage(ctx, created, data)
+	if err != nil {
+		t.Fatalf("CreatePage: %v", err)
+	}
+	if gotSHA != newSHA {
+		t.Errorf("returned sha = %q, want %q", gotSHA, newSHA)
+	}
+	ap, err := st.GetAdminPage(ctx, "p1")
+	if err != nil {
+		t.Fatalf("GetAdminPage: %v", err)
+	}
+	if ap.Title != "Brand New Page" || ap.FileSHA != newSHA {
+		t.Errorf("cache not updated after create: title=%q sha=%q", ap.Title, ap.FileSHA)
+	}
+}
+
+func TestCreatePage_CollisionErrPageExists(t *testing.T) {
+	t.Run("slug already cached makes no github call", func(t *testing.T) {
+		ctx := context.Background()
+		m := testutil.NewGitHubMock(t)
+		svc, st := newService(t, m)
+		seedPage(t, st, "p1", "Existing", seededSHA)
+
+		created, data := parsePage(t, "p1", "Dup Attempt")
+		if _, err := svc.CreatePage(ctx, created, data); !errors.Is(err, admin.ErrPageExists) {
+			t.Fatalf("err = %v, want ErrPageExists", err)
+		}
+		if m.RequestCount() != 0 {
+			t.Errorf("expected NO GitHub call for a cache-known collision, got %d", m.RequestCount())
+		}
+	})
+
+	t.Run("empty cache but github conflict", func(t *testing.T) {
+		ctx := context.Background()
+		m := testutil.NewGitHubMock(t)
+		svc, _ := newService(t, m)
+		m.OnPutContents("pages/p2.json", testutil.GHStatus(409))
+
+		created, data := parsePage(t, "p2", "Collides On GitHub")
+		if _, err := svc.CreatePage(ctx, created, data); !errors.Is(err, admin.ErrPageExists) {
+			t.Fatalf("err = %v, want ErrPageExists", err)
+		}
+	})
+}
+
+func TestCreatePage_GitHubUnavailable_CacheUnchanged(t *testing.T) {
+	ctx := context.Background()
+	m := testutil.NewGitHubMock(t)
+	svc, st := newService(t, m)
+	m.OnPutContents("pages/new.json", testutil.GHStatus(500))
+
+	created, data := parsePage(t, "new", "New Page")
+	if _, err := svc.CreatePage(ctx, created, data); !errors.Is(err, admin.ErrGitHubWrite) {
+		t.Fatalf("err = %v, want ErrGitHubWrite", err)
+	}
+	if exists, _ := st.PageExists(ctx, "new"); exists {
+		t.Error("GitHub-first invariant violated: cache gained a page after a failed write")
+	}
+}
+
+func TestUpdatePage_StaleShaReturnsStaleErrorAndReconciles(t *testing.T) {
+	for _, status := range []int{409, 422} {
+		t.Run(httpName(status), func(t *testing.T) {
+			ctx := context.Background()
+			m := testutil.NewGitHubMock(t)
+			svc, st := newService(t, m)
+			seedPage(t, st, "p1", "Old Cached", seededSHA)
+
+			const liveSHA = "6666666666666666666666666666666666666666"
+			liveData := pageBytes("p1", "Reconciled Live")
+			m.OnPutContents("pages/p1.json", testutil.GHStatus(status))
+			m.OnGetContents("pages/p1.json", testutil.GHContents(liveData, liveSHA))
+
+			attempted, data := parsePage(t, "p1", "Attempted")
+			_, err := svc.UpdatePage(ctx, attempted, data, "stale-client-sha")
+
+			var se *admin.StaleError
+			if !errors.As(err, &se) {
+				t.Fatalf("UpdatePage error = %v, want *StaleError", err)
+			}
+			if se.CurrentFileSHA != liveSHA {
+				t.Errorf("StaleError.CurrentFileSHA = %q, want %q", se.CurrentFileSHA, liveSHA)
+			}
+			ap, err := st.GetAdminPage(ctx, "p1")
+			if err != nil {
+				t.Fatalf("GetAdminPage: %v", err)
+			}
+			if ap.Title != "Reconciled Live" {
+				t.Errorf("cache not reconciled to live content: title=%q", ap.Title)
+			}
+			if ap.FileSHA != liveSHA {
+				t.Errorf("cache sha not reconciled: %q, want %q", ap.FileSHA, liveSHA)
+			}
+		})
+	}
+}
+
+func TestDeletePage_StaleShaReconciles(t *testing.T) {
+	ctx := context.Background()
+	m := testutil.NewGitHubMock(t)
+	svc, st := newService(t, m)
+	seedPage(t, st, "p1", "Old Cached", seededSHA)
+
+	const liveSHA = "7777777777777777777777777777777777777777"
+	m.OnDeleteContents("pages/p1.json", testutil.GHStatus(409))
+	m.OnGetContents("pages/p1.json", testutil.GHContents(pageBytes("p1", "Reconciled Live"), liveSHA))
+
+	err := svc.DeletePage(ctx, "p1", "stale-client-sha")
+	var se *admin.StaleError
+	if !errors.As(err, &se) {
+		t.Fatalf("DeletePage error = %v, want *StaleError", err)
+	}
+	if se.CurrentFileSHA != liveSHA {
+		t.Errorf("StaleError.CurrentFileSHA = %q, want %q", se.CurrentFileSHA, liveSHA)
+	}
+	// A stale delete reconciles rather than deleting: the row survives.
+	if ap, err := st.GetAdminPage(ctx, "p1"); err != nil || ap.Title != "Reconciled Live" {
+		t.Errorf("expected reconciled row to survive stale delete, got %+v err=%v", ap, err)
+	}
+}
+
+func TestDeletePage_404IsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	m := testutil.NewGitHubMock(t)
+	svc, st := newService(t, m)
+	seedPage(t, st, "p1", "Old Cached", seededSHA)
+
+	// GitHub reports the file already gone: idempotent success, row removed.
+	m.OnDeleteContents("pages/p1.json", testutil.GHStatus(404))
+
+	if err := svc.DeletePage(ctx, "p1", seededSHA); err != nil {
+		t.Fatalf("DeletePage with 404 should be idempotent success, got %v", err)
+	}
+	if _, err := st.GetAdminPage(ctx, "p1"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("cache row should be removed after idempotent delete, got %v", err)
+	}
+}
+
+func TestDeletePage_Success(t *testing.T) {
+	ctx := context.Background()
+	m := testutil.NewGitHubMock(t)
+	svc, st := newService(t, m)
+	seedPage(t, st, "p1", "Cached", seededSHA)
+
+	m.OnDeleteContents("pages/p1.json", testutil.GHWrite(200, "", "commit-sha"))
+	if err := svc.DeletePage(ctx, "p1", seededSHA); err != nil {
+		t.Fatalf("DeletePage: %v", err)
+	}
+	if _, err := st.GetAdminPage(ctx, "p1"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("page row should be gone after delete, got %v", err)
+	}
+}
+
 func assertUnchanged(t *testing.T, st *store.Store, slug, wantTitle, wantSHA string) {
 	t.Helper()
 	ap, err := st.GetAdminPost(context.Background(), slug)
